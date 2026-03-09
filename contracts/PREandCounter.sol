@@ -24,6 +24,7 @@ contract PRE
     uint private immutable c4Y;
     uint private immutable c5TimesP;
     uint private immutable hash;    
+    address public immutable serviceProviderAdmin;
 
     // Address for the counting contract
     Counter public immutable countingContract;
@@ -39,9 +40,11 @@ contract PRE
         uint _c4X,
         uint _c4Y,
         uint _c5TimesP,
-        bytes32[] memory _allowedAddresses
+        address _serviceProviderAdmin,
+        address[] memory _allowedAddresses
     ) 
     {
+        require(_serviceProviderAdmin != address(0), "Zero admin");
         c1X = _c1X;
         c1Y = _c1Y;
         c2X = _c2X;
@@ -51,7 +54,8 @@ contract PRE
         c4Y = _c4Y;
         c5TimesP = _c5TimesP;
         hash = uint256(keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))) % PRIME_FIELD_MODULUS ;
-        countingContract = new Counter(address(this), _allowedAddresses);
+        serviceProviderAdmin = _serviceProviderAdmin;
+        countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
     }
 
     function extendedEuclid(int256 e, int256 m) internal pure returns (int256) {
@@ -163,6 +167,7 @@ contract PRE
         public
         returns (uint, uint, bytes memory, uint)
     {
+        require(countingContract.isAllowed(msg.sender), "Unauthorized service provider");
         require(
             verifyProof(params.i, params.o, params.y, params.z, params.w, params.alpha, params.gamma),
             "Proof verification failed"
@@ -212,38 +217,72 @@ contract PRE
 contract Counter
 {
     address private immutable owner;
-    //bytes32[] private allowedAddresses;
-    mapping(bytes32 => bool) private allowedAddressHashes;
+    address public admin;
+    mapping(address => bool) private allowedAddresses;
     mapping(address => uint) public addressCounts;
 
-    
+    event AllowedAddressAdded(address indexed account);
+    event AllowedAddressRemoved(address indexed account);
+    event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
+
+    modifier onlyAdmin()
+    {
+        require(msg.sender == admin, "Invalid admin");
+        _;
+    }
 
     // Initialize owner and allowed addresses
-    constructor(address _owner, bytes32[] memory _allowedAddresses)  
+    constructor(address _owner, address _admin, address[] memory _allowedAddresses)  
     {
         require(_owner != address(0), "Zero address");
+        require(_admin != address(0), "Zero admin");
         owner = _owner;
+        admin = _admin;
 
         // Cache the length of _allowedAddresses
         uint256 allowedAddressesLength = _allowedAddresses.length;
-        // Store the hashes in the mapping
         for (uint i = 0; i < allowedAddressesLength; i++) {
-            allowedAddressHashes[_allowedAddresses[i]] = true; 
+            _setAllowedAddress(_allowedAddresses[i], true);
         }
     }
 
-    // Modifier to check if caller is allowed
-    function allowedSender(address account) internal view returns (bool)
+    function _setAllowedAddress(address account, bool allowed) internal
     {
-        bytes32 hash = keccak256(abi.encodePacked(account));
-        return allowedAddressHashes[hash];
+        require(account != address(0), "Zero address");
+        allowedAddresses[account] = allowed;
+    }
+
+    function isAllowed(address account) public view returns (bool)
+    {
+        return allowedAddresses[account];
+    }
+
+    function addAllowedAddress(address account) external onlyAdmin
+    {
+        require(!allowedAddresses[account], "Already allowed");
+        _setAllowedAddress(account, true);
+        emit AllowedAddressAdded(account);
+    }
+
+    function removeAllowedAddress(address account) external onlyAdmin
+    {
+        require(allowedAddresses[account], "Address not allowed");
+        _setAllowedAddress(account, false);
+        emit AllowedAddressRemoved(account);
+    }
+
+    function transferAdmin(address newAdmin) external onlyAdmin
+    {
+        require(newAdmin != address(0), "Zero admin");
+        emit AdminTransferred(admin, newAdmin);
+        admin = newAdmin;
     }
 
     // Increment the count
     function increment(address user) public
     {
         require(msg.sender == owner, "Invalid sender");
-        require(allowedSender(user), "Invalid user");
+        require(isAllowed(user), "Invalid user");
         addressCounts[user]++;
     }
 

@@ -13,12 +13,25 @@ from dotenv import load_dotenv
 import math
 import secrets
 import sys
+from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summary
 
 # ---------------------------------------------------------------------------
 # Path constants
 # ---------------------------------------------------------------------------
 _ROOT     = Path(__file__).resolve().parent.parent
 _DATA_DIR = _ROOT / "data"
+_GAS_REPORT_FILE = _DATA_DIR / "gas_report.json"
+
+
+def write_reencrypt_result(c1p, c2p, c3p, c4p):
+    payload = {
+        "c1_prime": int(c1p),
+        "c2_prime": int(c2p),
+        "c3_prime": c3p,
+        "c4_prime": int(c4p),
+    }
+    with open(_DATA_DIR / "reencrypt_result.json", "w") as f:
+        json.dump(payload, f, indent=4)
 
 class SP:
     ttp = TTP.TTP() 
@@ -196,9 +209,22 @@ class SP:
             raw_tx = getattr(signed_txn, 'rawTransaction', None) or getattr(signed_txn, 'raw_transaction')
             tx_hash = web3.eth.send_raw_transaction(raw_tx)
             tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+            gas_summary = format_tx_gas_summary(
+                web3,
+                tx_hash,
+                tx_receipt,
+                label="reEncrypt",
+                actor="SP",
+                extra={
+                    "pre_contract_address": str(contract_address),
+                    "counter_side_effect": "Increment count executed within same transaction",
+                },
+            )
 
             if tx_receipt['status'] == 1:
                 print(f"reEncrypt() transaction successful! Transaction hash: {tx_hash.hex()}")
+                print_tx_gas_summary(gas_summary)
+                GasReportStore(_GAS_REPORT_FILE).append(gas_summary)
   
                 cPrime = contract.functions.reEncrypt(params).call({
                 'from': account,
@@ -228,6 +254,10 @@ class SP:
             else:
                 print(f"reEncrypt() transaction failed. Transaction hash: {tx_hash.hex()}")
                 print(f"Transaction receipt: {tx_receipt}")
+                gas_summary["status_text"] = "failed"
+                print_tx_gas_summary(gas_summary)
+                GasReportStore(_GAS_REPORT_FILE).append(gas_summary)
+                raise RuntimeError(f"reEncrypt() transaction failed: {tx_hash.hex()}")
                 
 
         except Exception as e:
@@ -527,6 +557,7 @@ def main():
     print("C2':", c2p)
     print("C3':", c3p)
     print("C4':", c4p)
+    write_reencrypt_result(c1p, c2p, c3p, c4p)
     # c1p = 16601619521193507631881745842136240544064338946043750133150392853469066784298
     # c2p = 10122071982055415830668804254851217698030102169577189223646741109087862154444
     # c3p = "011101101111011011101110110010110110000001000111011001110000011011111100011001110101010110000110111000111111000011010000000101010011001111011001101011000000111010010000101100010100111101011001000001101100001101010110000110111100110011001000011100111101011111011001101111000100111010100010011111010010101010111101111001000110001010011101000010110001111000101101001001101010111101101010"

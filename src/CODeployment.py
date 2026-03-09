@@ -13,6 +13,7 @@ import os
 import json
 from pathlib import Path
 from dotenv import load_dotenv
+from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summary
 
 import solcx
 from solcx import compile_standard, install_solc
@@ -26,6 +27,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 _DATA_DIR = _ROOT / "data"
 _CONTRACTS_DIR = _ROOT / "contracts"
 _COMPILED_CONTRACTS_DIR = _CONTRACTS_DIR / "compiled"
+_GAS_REPORT_FILE = _DATA_DIR / "gas_report.json"
 
 
 
@@ -261,6 +263,19 @@ def save_contract_address(contract_address):
         raise
 
 
+def save_count_contract_address(contract_address):
+    """Save Counter contract address to JSON file."""
+    try:
+        contract_info = {
+            'contract_address': contract_address
+        }
+        with open(_DATA_DIR / 'count_contract_info.json', 'w') as f:
+            json.dump(contract_info, f, indent=4)
+    except Exception as e:
+        print(f"Error saving counter contract address: {str(e)}")
+        raise
+
+
 
 class CiphertextManager:
     _instance = None
@@ -347,6 +362,18 @@ def _extract_pre_artifact(compiled_data):
     raise ValueError("Could not find PRE contract ABI/bytecode in the JSON file.")
 
 
+def _extract_counter_artifact(compiled_data):
+    """Return the Counter contract artifact from normalized compiled JSON."""
+    if not isinstance(compiled_data, dict):
+        raise ValueError("Compiled contract data is not a JSON object.")
+
+    counter_artifact = compiled_data.get("Counter")
+    if isinstance(counter_artifact, dict) and "abi" in counter_artifact and "bytecode" in counter_artifact:
+        return counter_artifact
+
+    raise ValueError("Could not find Counter contract ABI/bytecode in the JSON file.")
+
+
 def deploy_contract(c1, c2, c3, c4, c5p):
 
     with open(_DATA_DIR / 'PRE_compData1.json', 'r') as f:
@@ -365,8 +392,6 @@ def deploy_contract(c1, c2, c3, c4, c5p):
     if isinstance(contract_bytecode, dict):
         contract_bytecode = contract_bytecode.get('object', '')
 
-    #address = input("Enter a Solidity address in hex: ")
-    address = "0xf5ccca0b9a335ad37303d71517ad248987c60954bad2539f42bca292b2dbee19"
     load_dotenv()
 
     PRIVATE_KEY = os.getenv('PRIVATE_KEY')
@@ -395,8 +420,8 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         int(c4.x()), 
         int(c4.y()),  # C4 coordinates
         int(c5p.x()),                # C5 * P
-        # ["0x" + str(keccak256_hex(address))]  # Address hash
-        format_address_for_constructor(account)
+        account,
+        [account]
 
     ]
     
@@ -425,7 +450,24 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         
         # Wait for receipt
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-        return str(tx_receipt.contractAddress)
+        pre_contract_address = Web3.to_checksum_address(str(tx_receipt.contractAddress))
+        deployed_pre = web3.eth.contract(address=pre_contract_address, abi=contract_abi)
+        counter_contract_address = Web3.to_checksum_address(deployed_pre.functions.countingContract().call())
+        gas_summary = format_tx_gas_summary(
+            web3,
+            tx_hash,
+            tx_receipt,
+            label="PRE+Counter deployment",
+            actor="CO",
+            extra={
+                "pre_contract_address": pre_contract_address,
+                "counter_contract_address": counter_contract_address,
+                "note": "Counter is created internally during PRE deployment, so this gas usage covers both contracts."
+            },
+        )
+        print_tx_gas_summary(gas_summary)
+        GasReportStore(_GAS_REPORT_FILE).append(gas_summary)
+        return pre_contract_address, counter_contract_address
         
     except Exception as e:
         print(f"Error deploying contract: {str(e)}")
@@ -494,6 +536,34 @@ def write_compiled_contract_files(compiled_data, compiler_version, output_dir):
         print(f"Error writing compiled contract artifacts: {e}")
 
 
+def write_runtime_artifacts(compiled_data):
+    """Write runtime ABI snapshots used by existing Python helper scripts."""
+    try:
+        pre_artifact = _extract_pre_artifact(compiled_data)
+        counter_artifact = _extract_counter_artifact(compiled_data)
+
+        with open(_DATA_DIR / "Counter_compData.json", "w") as f:
+            json.dump(counter_artifact, f, indent=4)
+
+        with open(_DATA_DIR / "PRE_compData.json", "w") as f:
+            json.dump(pre_artifact, f, indent=4)
+    except Exception as e:
+        print(f"Error writing runtime artifacts: {e}")
+
+
+def write_encrypted_content_artifact(encrypted_content, plaintext_description=None):
+    """Persist encrypted content so the User flow can consume it later."""
+    try:
+        payload = {
+            "encrypted_content": encrypted_content,
+            "description": plaintext_description or "Encrypted content for user-side decryption"
+        }
+        with open(_DATA_DIR / "encrypted_content.json", "w") as f:
+            json.dump(payload, f, indent=4)
+    except Exception as e:
+        print(f"Error writing encrypted content artifact: {e}")
+
+
 def generate_128bit_symmetric_key():
     """Generates a 128-bit symmetric key using Fernet."""
     # key = Fernet.generate_key()  # Fernet handles key generation securely
@@ -531,14 +601,17 @@ def main():
             compiler_version = str(solcx.get_solc_version())
             write_compiled_to_json(compiled_data, output_json_file)
             write_compiled_contract_files(compiled_data, compiler_version, _COMPILED_CONTRACTS_DIR)
+            write_runtime_artifacts(compiled_data)
         else:
             print("Compilation failed.")
 
 
     k_i = generate_128bit_symmetric_key()
     print("Symmetric Key:", k_i)
-    C_m = encrypt_content("hello this is the content that needs to be decrypted by the User.", k_i)
+    plaintext_content = "hello this is the content that needs to be decrypted by the User."
+    C_m = encrypt_content(plaintext_content, k_i)
     print("Encrypted Content:", C_m)
+    write_encrypted_content_artifact(C_m, plaintext_content)
 
     
     """Encrypt, decrypt, re-encrypt, and re-decrypt a message"""
@@ -588,9 +661,11 @@ def main():
     print("C5 times P:", c5p.x())
     print("Parity:", full_parity, "\n")
 
-    contract_address = deploy_contract(c1, c2, c3, c4, c5p)
+    contract_address, count_contract_address = deploy_contract(c1, c2, c3, c4, c5p)
     print(f"Smart contract deployed at: {contract_address}")
+    print(f"Counter contract deployed at: {count_contract_address}")
     save_contract_address(contract_address)
+    save_count_contract_address(count_contract_address)
 
 
 
