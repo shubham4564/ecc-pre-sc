@@ -39,7 +39,7 @@ In short, the repository combines:
 ## Requirements
 
 - Python 3.x
-- Conda environment named `eccvenv` or an equivalent Python environment
+- Any Python environment manager such as Conda, `venv`, or virtualenv
 - Internet access to reach the Sepolia RPC endpoint
 - funded Sepolia account for deployment and transaction execution
 
@@ -47,12 +47,26 @@ Python dependencies are listed in [requirements.txt](requirements.txt).
 
 ## Environment setup
 
-Create or use the existing Conda environment and install dependencies.
+Create and activate any Python environment of your choice, then install the dependencies from [requirements.txt](requirements.txt).
+
+Examples:
+
+### Option 1: Conda
 
 ```powershell
 conda activate eccvenv
 pip install -r requirements.txt
 ```
+
+### Option 2: Python `venv`
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+Use whichever environment manager you normally prefer. The commands in the rest of this README assume that your Python environment is already activated.
 
 ## Environment variables
 
@@ -78,7 +92,7 @@ Always run commands from the repository root.
 ### Step 1: activate the environment
 
 ```powershell
-conda activate eccvenv
+# Activate your chosen Python environment first
 ```
 
 ### Step 2: deploy and initialize the system
