@@ -1,0 +1,264 @@
+{
+	"compiler": {
+		"version": "0.7.6+commit.7338295f"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_c1X",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c1Y",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c2X",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c2Y",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_c3",
+						"type": "bytes"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c4X",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c4Y",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_c5TimesP",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32[]",
+						"name": "_allowedAddresses",
+						"type": "bytes32[]"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"inputs": [],
+				"name": "BETA",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "CURVE_ORDER",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "LAMBDA",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "PRIME_FIELD_MODULUS",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "countingContract",
+				"outputs": [
+					{
+						"internalType": "contract Counter",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"components": [
+							{
+								"internalType": "uint256",
+								"name": "rk1",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "rk2",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "rk3",
+								"type": "uint256"
+							},
+							{
+								"internalType": "int256",
+								"name": "i",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "o",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "y",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "z",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "w",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "alpha",
+								"type": "int256"
+							},
+							{
+								"internalType": "int256",
+								"name": "gamma",
+								"type": "int256"
+							}
+						],
+						"internalType": "struct PRE.ReEncryptInputs",
+						"name": "params",
+						"type": "tuple"
+					}
+				],
+				"name": "reEncrypt",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					},
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"PREandCounter.sol": "PRE"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"EllipticCurve.sol": {
+			"keccak256": "0x32b6e39e5a32f8a4c1f0890e567dcdf315d9f14d0ec512556f60c52289d9d7d7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://34a448d6bd1ffc5e7fe1edf28a33cee68db3201f3764141fa62cd78fd454e376",
+				"dweb:/ipfs/QmdLGrhndAV48LWaBYv59brX5VumBCvz5FJVo9N6otDuy3"
+			]
+		},
+		"FastEcMul.sol": {
+			"keccak256": "0xda9ac41e22069ad76b4c260b11e6c73d9a4aef07575c27ee055903a67056ce5b",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://9fa93c1160d3765d76776a05859825783f999d239294f1b58bd1238652d8440d",
+				"dweb:/ipfs/QmSxgd3bPmhghVnzfH9qVzb5uCm6oRWgY77ccQfwaZ9qet"
+			]
+		},
+		"PREandCounter.sol": {
+			"keccak256": "0xb639c207c19071bbec51e734824f2a084060522a6c68611f037db42659ab450a",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://330d2b8b73a06518d4f0d9a4d6a260560607cbc28784982bc45f7dc8219c4a4d",
+				"dweb:/ipfs/QmdcRkm2ncYrW5P1zEXpSg6BoJYpXb5ibXgcTJRVQYiyda"
+			]
+		}
+	},
+	"version": 1
+}

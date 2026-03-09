@@ -1,0 +1,84 @@
+# Virtual Environments
+venv/
+.venv/
+env/
+.env/
+myenv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Distribution / packaging
+.Python
+build/
+dist/
+eggs/
+*.egg-info/
+*.egg
+wheels/
+*.whl
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Benchmark results
+benchmarks/*.csv
+benchmarks/*.json
+benchmarks/results/
+
+# Environment variables
+.env
+.env.*
+*.env
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Solidity / Hardhat / Truffle build artifacts (if regenerated)
+# artifacts/
+# cache/
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
