@@ -308,13 +308,13 @@ class SP:
         self.b_x = rk_params['b_x']
         self.b_y = rk_params['b_y']
         
-        # c1_primey = self.compute_y(c1_prime, SECP256k1.curve)
-        # c2_primey = self.compute_y(c2_prime, SECP256k1.curve)
-        # c4_primey = self.compute_y(c4_prime, SECP256k1.curve)
-
-        # c1_prime = Point(SECP256k1.curve, c1_prime, c1_primey)
-        # c2_prime = Point(SECP256k1.curve, c2_prime, c2_primey)
-        # c4_prime = Point(SECP256k1.curve, c4_prime, c4_primey)
+        # Contract returns x-coordinates only, so reconstruct points on secp256k1.
+        if isinstance(c1_prime, int):
+            c1_prime = Point(SECP256k1.curve, c1_prime, self.compute_y(c1_prime, SECP256k1.curve))
+        if isinstance(c2_prime, int):
+            c2_prime = Point(SECP256k1.curve, c2_prime, self.compute_y(c2_prime, SECP256k1.curve))
+        if isinstance(c4_prime, int):
+            c4_prime = Point(SECP256k1.curve, c4_prime, self.compute_y(c4_prime, SECP256k1.curve))
 
         # Manually compute public key points
         sk_pr_x = self.b_x * self.p
