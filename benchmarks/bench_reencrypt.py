@@ -6,21 +6,21 @@ from dotenv import load_dotenv
 # Paths relative to this file
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 ARTIFACT_PRE = os.path.join(ROOT, "artifacts", "PRE.json")
-CONTRACT_INFO = os.path.join(ROOT, "contract_info.json")
+CONTRACT_INFO = os.path.join(ROOT, "data", "contract_info.json")
 OUT_CSV  = os.path.join(os.path.dirname(__file__), "reencrypt_bench.csv")
 
 
 # Ensure project root is importable to reuse your off-chain pipeline
 ROOT_PATH = pathlib.Path(__file__).resolve().parents[1]
-if str(ROOT_PATH) not in sys.path:
-    sys.path.insert(0, str(ROOT_PATH))
+if str(ROOT_PATH / "src") not in sys.path:
+    sys.path.insert(0, str(ROOT_PATH / "src"))
 
 try:
     import SP as sp_module
 except ModuleNotFoundError:
     # Fallback dynamic import if running from unusual cwd
     import importlib.util
-    spec = importlib.util.spec_from_file_location("SP", str(ROOT_PATH / "SP.py"))
+    spec = importlib.util.spec_from_file_location("SP", str(ROOT_PATH / "src" / "SP.py"))
     sp_module = importlib.util.module_from_spec(spec)
     sys.modules["SP"] = sp_module
     assert spec.loader is not None

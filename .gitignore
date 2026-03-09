@@ -40,10 +40,17 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# Benchmark results
-benchmarks/*.csv
-benchmarks/*.json
+# Benchmark results (generated at runtime)
+benchmarks/offchain_bench.csv
+benchmarks/reencrypt_bench.csv
 benchmarks/results/
+
+# Data directory — runtime-generated files (DO commit Counter_compData.json & PRE_compData.json)
+data/system_parameters.json
+data/contract_info.json
+data/count_contract_info.json
+data/PRE_compData1.json
+data/PRE_bytecode.txt
 
 # Environment variables
 .env

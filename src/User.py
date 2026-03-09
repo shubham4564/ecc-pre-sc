@@ -1,12 +1,19 @@
 import TTP
 import json
 import sys
+from pathlib import Path
 from ecdsa.numbertheory import inverse_mod
 import SP
 from cryptography.fernet import Fernet
 import base64
 import subprocess
 
+# ---------------------------------------------------------------------------
+# Path constants
+# ---------------------------------------------------------------------------
+_ROOT     = Path(__file__).resolve().parent.parent
+_SRC_DIR  = Path(__file__).resolve().parent
+_DATA_DIR = _ROOT / "data"
 
 
 class User:
@@ -18,7 +25,7 @@ class User:
     def get_redec_parameters(self):
         """Load parameters needed for re-decryption"""
         try:
-            with open('system_parameters.json', 'r') as f:
+            with open(_DATA_DIR / 'system_parameters.json', 'r') as f:
                 params = json.load(f)
                 
             if 'parameters' not in params:
@@ -132,7 +139,7 @@ class User:
 
     def reqReEncContentKey(self):
         """Invoke SP.py and retrieve c1p, c2p, c3p, c4p"""
-        result = subprocess.run(['python', 'SP.py'], capture_output=True, text=True)
+        result = subprocess.run(['python', str(_SRC_DIR / 'SP.py')], capture_output=True, text=True)
         if result.returncode != 0:
             print(f"Error invoking SP.py: {result.stderr}")
             return None, None, None, None
@@ -143,7 +150,7 @@ class User:
     def reqEncContent(self):
         """Read content of encryptedcontent file"""
         try:
-            with open('encryptedcontent', 'r') as f:
+            with open(_ROOT / 'encryptedcontent', 'r') as f:
                 enccontent = f.read()
             return enccontent
         except FileNotFoundError:

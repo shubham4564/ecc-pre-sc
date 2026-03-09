@@ -1,11 +1,11 @@
 import csv, time, statistics, os, json, secrets, sys, pathlib
 from typing import Tuple, List
 
-# Ensure project root is importable
+# Ensure src/ is importable
 _HERE = pathlib.Path(__file__).resolve().parent
 _ROOT = _HERE.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+if str(_ROOT / "src") not in sys.path:
+    sys.path.insert(0, str(_ROOT / "src"))
 
 # Local imports
 from ecdsa.curves import SECP256k1
@@ -15,7 +15,7 @@ try:
     import SP as sp_module
 except ModuleNotFoundError:
     import importlib.util
-    spec = importlib.util.spec_from_file_location("SP", str(_ROOT / "SP.py"))
+    spec = importlib.util.spec_from_file_location("SP", str(_ROOT / "src" / "SP.py"))
     sp_module = importlib.util.module_from_spec(spec)
     sys.modules["SP"] = sp_module
     assert spec.loader is not None
@@ -25,7 +25,7 @@ try:
     import TTP as ttp_module
 except ModuleNotFoundError:
     import importlib.util
-    spec = importlib.util.spec_from_file_location("TTP", str(_ROOT / "TTP.py"))
+    spec = importlib.util.spec_from_file_location("TTP", str(_ROOT / "src" / "TTP.py"))
     ttp_module = importlib.util.module_from_spec(spec)
     sys.modules["TTP"] = ttp_module
     assert spec.loader is not None
@@ -51,7 +51,7 @@ def bench(func, args: tuple = (), n: int = 100, warmup: int = 5) -> List[float]:
 
 # Helpers to load parameters and build consistent synthetic inputs
 def _load_params():
-    with open("system_parameters.json", "r") as f:
+    with open(_ROOT / "data" / "system_parameters.json", "r") as f:
         params = json.load(f)["parameters"]
 
     q = int(params["q"])  # curve order
@@ -278,8 +278,7 @@ def main():
             stats_rows.append((label, round(statistics.mean(times), 3), round(statistics.median(times), 3), round(p95, 3), len(times)))
 
     # Write CSV
-    os.makedirs("benchmarks", exist_ok=True)
-    with open("benchmarks/offchain_bench.csv", "w", newline="") as f:
+    with open(_HERE / "offchain_bench.csv", "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["op", "latency_ms"])
         writer.writerows(results)

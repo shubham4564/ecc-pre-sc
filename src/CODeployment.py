@@ -11,12 +11,19 @@ from web3 import Web3
 from TTP import TTP
 import os
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 
 import solcx
 from solcx import compile_standard, install_solc
 
-
+# ---------------------------------------------------------------------------
+# Path constants (resolved relative to this file so the project runs correctly
+# regardless of the working directory)
+# ---------------------------------------------------------------------------
+_ROOT          = Path(__file__).resolve().parent.parent
+_DATA_DIR      = _ROOT / "data"
+_CONTRACTS_DIR = _ROOT / "contracts"
 
 
 class CO:
@@ -229,7 +236,7 @@ class CO:
             }
         }
     
-        with open('system_parameters.json', 'w') as f:
+        with open(_DATA_DIR / 'system_parameters.json', 'w') as f:
             json.dump(key_info, f, indent=4)
 
 
@@ -243,7 +250,7 @@ def save_contract_address(contract_address):
         contract_info = {
             'contract_address': contract_address
         }
-        with open('contract_info.json', 'w') as f:
+        with open(_DATA_DIR / 'contract_info.json', 'w') as f:
             json.dump(contract_info, f, indent=4)
     except Exception as e:
         print(f"Error saving contract address: {str(e)}")
@@ -310,7 +317,7 @@ def format_address_for_constructor(address_str):
 
 def deploy_contract(c1, c2, c3, c4, c5p):
 
-    with open('PRE_compdata1.json', 'r') as f:
+    with open(_DATA_DIR / 'PRE_compData1.json', 'r') as f:
         data = json.load(f)
         # contract_name = 'PRE'
         # contract_abi = None
@@ -458,10 +465,10 @@ def bytes_to_bits(byte_data):
     return bit_string
 
 def main():
-    solidity_file_path = "PREandCounter.sol"
+    solidity_file_path = str(_CONTRACTS_DIR / "PREandCounter.sol")
     solidity_version_to_use = "0.7.6"
     install_solc(solidity_version_to_use)
-    output_json_file = "PRE_compData1.json"
+    output_json_file = str(_DATA_DIR / "PRE_compData1.json")
 
     if not os.path.exists(solidity_file_path):
         print(f"Error: Solidity file '{solidity_file_path}' not found.")

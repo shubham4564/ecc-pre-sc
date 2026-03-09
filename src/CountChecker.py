@@ -4,13 +4,20 @@ from eth_hash.auto import keccak
 from web3 import Web3
 import os
 import json
+from pathlib import Path
 from dotenv import load_dotenv
+
+# ---------------------------------------------------------------------------
+# Path constants
+# ---------------------------------------------------------------------------
+_ROOT     = Path(__file__).resolve().parent.parent
+_DATA_DIR = _ROOT / "data"
 
 
 def get_contract_info():
     """Load contract address from JSON file"""
     try:
-        with open('count_contract_info.json', 'r') as f:
+        with open(_DATA_DIR / 'count_contract_info.json', 'r') as f:
             contract_data = json.load(f)
             return contract_data['contract_address']
     except Exception as e:
@@ -38,7 +45,7 @@ class CountChecker:
         if not web3.is_connected():
             raise Exception("Failed to connect to network")
     
-        with open('Counter_compData.json', 'r') as f:
+        with open(_DATA_DIR / 'Counter_compData.json', 'r') as f:
             compdata = json.load(f)
             contract_abi = compdata['abi']
      

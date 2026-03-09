@@ -8,10 +8,17 @@ from web3 import Web3
 import TTP
 import os
 import json
+from pathlib import Path
 from dotenv import load_dotenv
 import math
 import secrets
 import sys
+
+# ---------------------------------------------------------------------------
+# Path constants
+# ---------------------------------------------------------------------------
+_ROOT     = Path(__file__).resolve().parent.parent
+_DATA_DIR = _ROOT / "data"
 
 class SP:
     ttp = TTP.TTP() 
@@ -22,7 +29,7 @@ class SP:
     def get_redec_parameters(self):
         """Load parameters needed for re-decryption"""
         try:
-            with open('system_parameters.json', 'r') as f:
+            with open(_DATA_DIR / 'system_parameters.json', 'r') as f:
                 params = json.load(f)
                 
             if 'parameters' not in params:
@@ -92,7 +99,7 @@ class SP:
     def get_rk_parameters(self):
         """Load parameters needed for re-encryption key generation"""
         try:
-            with open('system_parameters.json', 'r') as f:
+            with open(_DATA_DIR / 'system_parameters.json', 'r') as f:
                 params = json.load(f)
                 
             if 'parameters' not in params:
@@ -165,7 +172,7 @@ class SP:
         if not web3.is_connected():
             raise Exception("Failed to connect to network")
     
-        with open('PRE_compdata1.json', 'r') as f:
+        with open(_DATA_DIR / 'PRE_compData1.json', 'r') as f:
             compdata = json.load(f)
             contract_abi = compdata['PRE']['abi']
      
@@ -360,7 +367,7 @@ def mpz_to_uint256(mpz_val):
 def get_contract_info():
     """Load contract address from JSON file"""
     try:
-        with open('contract_info.json', 'r') as f:
+        with open(_DATA_DIR / 'contract_info.json', 'r') as f:
             contract_data = json.load(f)
             return contract_data['contract_address']
     except Exception as e:
