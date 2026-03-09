@@ -1,155 +1,129 @@
-# Elliptic Curve Cryptography Proxy Re-Encryption
+# PRE Benchmarks and Run Process
 
-This code implements proxy re-encryption using elliptic curve cryptography in Solidity to ensure integrity and accuracy in tracking content downloads.
+This folder contains scripts to measure the off-chain and on-chain performance of the PRE pipeline after the system has been deployed and initialized.
 
-## Installation
+## Project run order
 
-This program can be installed using Git:
+From the repository root, use the following sequence.
 
-```bash
-git clone https://github.com/DillonDavidson/ECC-PRE.git
-cd ECC-PRE
+### 1. Activate the environment
+
+```powershell
+conda activate eccvenv
 ```
 
-I recommend using a Python virtual environment:
+### 2. Deploy and initialize the system
 
-```bash
-python3 -m venv myenv
-source myenv/bin/activate
+```powershell
+python src/CODeployment.py
 ```
 
-Then install the required packages:
+This step:
+- compiles [contracts/PREandCounter.sol](../contracts/PREandCounter.sol)
+- writes aggregate compiled output to [data/PRE_compData1.json](../data/PRE_compData1.json)
+- writes per-contract compiled artifacts to [contracts/compiled](../contracts/compiled)
+- prints the Solidity compiler version
+- generates and stores crypto parameters in [data/system_parameters.json](../data/system_parameters.json)
+- deploys the PRE contract and stores the address in [data/contract_info.json](../data/contract_info.json)
 
-```bash
-pip install -r requirements.txt
+Wait for the script to finish and confirm it prints:
+- `Compiler version: 0.7.6`
+- `Smart contract deployed at: ...`
+
+### 3. Run re-encryption and re-decryption
+
+```powershell
+python src/SP.py
 ```
 
-## Smart Contract Overview
-This program uses two smart contracts: PRE and Counter. The PRE contract performs the elliptic curve proxy re-encryption. The Counter contract holds the download count and only increments the count only when called by the PRE contract. 
+This step:
+- loads [data/system_parameters.json](../data/system_parameters.json)
+- loads [data/contract_info.json](../data/contract_info.json)
+- loads [data/PRE_compData1.json](../data/PRE_compData1.json)
+- calls `reEncrypt()` on-chain
+- prints `C1'`, `C2'`, `C3'`, and `C4'`
+- re-decrypts the returned values locally
 
-## PRE Smart Contract
+Wait for the script to finish and confirm it prints:
+- `reEncrypt() transaction successful!`
+- the returned re-encrypted values
+- the recovered decrypted key bytes
 
-The PRE contract has 2 functions: the constructor and the re-encryption function.
+### 4. Check the download count
 
-### ***Constructor***
+```powershell
+python src/CountChecker.py
+```
 
-The PRE constructor takes 10 parameters:
+This step verifies that the counter contract was updated after successful re-encryption.
 
-1. **_C1_X** (`uint256`): The x-coordinate of the first ciphertext.
-2. **_C1_Y** (`uint256`): The y-coordinate of the first ciphertext.
-3. **_C2_X** (`uint256`): The x-coordinate of the second ciphertext.
-4. **_C2_Y** (`uint256`): The y-coordinate of the second ciphertext.
-5. **_C3** (`bytes`): The third ciphertext
-6. **_C4_X** (`uint256`): The x-coordinate of the fourth ciphertext.
-7. **_C4_Y** (`uint256`): The y-coordinate of the fourth ciphertext.
-8. **_C5_TIMES_P** (`uint256`): The x-coordinate of the fifth ciphertext times the curve generator
-9. **_ALLOWED_ADDRESSES** (`bytes32[]`): An array of hashed allowed account addresses. 
-10. **_PARITY** (`uint24`): The 3 parities of ciphertext 1, ciphertext 2, and ciphertext 4 concatenated together.
+---
 
-The constructor sets the matching class variables, deploys the Counter contract, and saves the Counter contract's address.
+## Benchmark prerequisites
 
-### **Re-*Encrypt***
+Before running the benchmark scripts, make sure:
 
-The **Re-Encrypt** function takes 3 parameters:
+- the environment is active: `conda activate eccvenv`
+- [data/system_parameters.json](../data/system_parameters.json) exists
+- [data/contract_info.json](../data/contract_info.json) exists
+- [artifacts/PRE.json](../artifacts/PRE.json) exists
+- `.env` in the repo root contains:
 
-1. **RK1** (`uint256`): The first re-encryption key.
-2. **RK2** (`uint256`): The second re-encryption key.
-3. **RK3** (`uint256`): The third re-encryption key.
+```env
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/<your-key>
+CHAIN_ID=11155111
+PRIVATE_KEY=0x<your-private-key>
+ALCHEMY_API=<your-alchemy-key>
+WALLET_ADDRESS=0x<your-wallet-address>
+```
 
-This function uses the re-encryption keys (if valid) to re-encrypt the ciphertexts. If successful, it calls the Increment function of the Counter contract. If the Increment function succeeds, it returns the re-encrypted ciphertexts.
+## On-chain re-encryption benchmark
 
-The **Re-Encrypt** function returns 4 values:
+Runs multiple `reEncrypt()` transactions and records gas and latency.
 
-1. **C1'** (`uint256`): The first re-encrypted ciphertext.
-2. **C2'** (`uint256`): The second re-encrypted ciphertext.
-3. **C3'** (`bytes`): The third re-encrypted ciphertext.
-4. **C4'** (`uint256`): The fourth re-encrypted ciphertext.
+```powershell
+python benchmarks/bench_reencrypt.py
+```
 
-## Counter Smart Contract
+Output:
+- [benchmarks/reencrypt_bench.csv](reencrypt_bench.csv)
 
-The Counter contract has 4 functions: the constructor, the allowedSender function, the increment function, and the getCount function.
+Columns:
+- `gas_used`
+- `latency_ms`
 
-### ***Constructor***
+The console also prints:
+- average gas
+- average latency
+- latency percentiles
+- approximate throughput
 
-The Counter constructor takes 2 parameters:
+## Off-chain benchmark
 
-1. **OWNER** (`address`): The owner of this contract (the PRE contract).
-2. **ALLOWED_ADDRESSES** (`bytes32[]`): An array of the hashed addresses allowed to call the Increment function.
+Measures local CPU-bound parts of the PRE flow.
 
-### ***AllowedSender***
+```powershell
+python benchmarks/bench_offchain.py
+```
 
-The **AllowedSender** function takes 1 parameter:
+Output:
+- [benchmarks/offchain_bench.csv](offchain_bench.csv)
 
-1. **ME** (`address`): The address to be checked.
+This benchmark uses the generated data in [data/system_parameters.json](../data/system_parameters.json), so run [src/CODeployment.py](../src/CODeployment.py) first.
 
-This function verifies whether the provided address is among the allowed senders.
+## Recommended full workflow
 
-The **AllowedSender** function returns 1 value:
-1. **RESULT** (`bool`): The result of the check.
+```powershell
+conda activate eccvenv
+python src/CODeployment.py
+python src/SP.py
+python src/CountChecker.py
+python benchmarks/bench_offchain.py
+python benchmarks/bench_reencrypt.py
+```
 
-### ***Increment***
+## Notes
 
-The **Increment** function takes 1 parameter:
-
-1. **USER** (`address`): The user trying to increment the count.
-
-If the address calling this function is the owner and the passed address is an allowed sender, then the count will be incremented.
-
-### ***GetCount***
-
-The **GetCount** function takes 1 parameter:
-
-1. **User** (`address`): The user whose count is requested.
-
-This function returns the count associated with the passed address if it exists.
-
-The **GetCount** function returns 1 value:
-1. **COUNT** (`uint256`): The passed user's count if it exists.
-
-## Usage
-
-I recommend using the [Remix IDE](https://remix.ethereum.org/) for testing the smart contracts. If you prefer a desktop version, there is an archived version available [here](https://github.com/ethereum/remix-desktop.git).
-
-For testing purposes only, the ```ecc_pre.py``` program can be used to generate test values.
-
-## Examples
-
-Here is a simple walkthrough using the ```ecc_pre.py``` program to generate some values and the Remix IDE to test the smart contracts.
-
-1. Run the Python program.
-![Step 1](images/1.png)
-
-2. You will be prompted to enter a message, so enter one.
-![Step 2](images/2.png)
-
-3. Then it will ask you for an address, so enter a valid one.
-![Step 3](images/3.png)
-
-4. If you are using the Remix IDE, you can simply copy it by clicking this clipboard icon as shown.
-![Step 4](images/4.png)
-
-5. Enter your valid address.
-![Step 5](images/5.png)
-
-6. After entering both inputs, the program will encrypt, decrypt, re-encrypt, and re-decrypt your message.
-![Step 6](images/6.png)
-
-7. Back in Remix, compile the contract and select the PRE contract (NOT the Counter contract!) from the **CONTRACT** drop down menu. Then enter the PRE constructor's parameters.
-![Step 7](images/7.png)
-
-8. Press the orange **TRANSACT** button to deploy the contract. Then expand the contract in the **DEPLOYED CONTRACTS** section and enter the re-encryption keys and click the orange **TRANSACT** button just below it.
-![Step 8](images/8.png)
-
-9. Comparing the output of the Python program and the smart contract, they are the same re-encrypted values.
-![Step 9](images/9.png)
-
-10. If we change the address of the account in the **ACCOUNT** drop down menu to an address that we did not include, the Re-Encrypt function will fail to execute because this account is not allowed.
-![Step 10](images/10.png)
-
-## Publications
-
-TBA
-
-## License
-
-TBA
+- Always run commands from the repository root.
+- If you redeploy with [src/CODeployment.py](../src/CODeployment.py), rerun [src/SP.py](../src/SP.py) and [src/CountChecker.py](../src/CountChecker.py) against the new deployment.
+- If a block explorer does not immediately show the contract, wait for indexing and verify you are checking the Sepolia network.
