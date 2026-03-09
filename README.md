@@ -20,6 +20,12 @@ In short, the repository combines:
 - [src/CountChecker.py](src/CountChecker.py)  
 	Reads the counter contract state and prints the current count for the configured wallet.
 
+- [src/SPManager.py](src/SPManager.py)  
+	Manages the Service Provider allowlist after deployment by adding, removing, checking, or transferring SP administration.
+
+- [src/GasReporter.py](src/GasReporter.py)  
+	Summarizes deployment gas and recorded runtime gas usage for blockchain-interacting operations.
+
 - [contracts/PREandCounter.sol](contracts/PREandCounter.sol)  
 	Contains the PRE contract and the counter contract.
 
@@ -110,6 +116,8 @@ This script:
 - generates cryptographic parameters and stores them in [data/system_parameters.json](data/system_parameters.json)
 - deploys the PRE contract
 - stores the deployed contract address in [data/contract_info.json](data/contract_info.json)
+- stores the deployed Counter contract address in [data/count_contract_info.json](data/count_contract_info.json)
+- records deployment gas in [data/gas_report.json](data/gas_report.json)
 
 Wait for it to complete and confirm output similar to:
 
@@ -146,6 +154,56 @@ python src/CountChecker.py
 
 This script verifies the counter contract was updated after a successful re-encryption flow.
 
+### Step 5: manage Service Providers dynamically
+
+The contract now supports dynamic Service Provider lifecycle management without redeploying the PRE contract.
+
+Supported operations:
+
+- **check** — verify whether a wallet is currently authorized as a Service Provider
+- **add** — onboard a new Service Provider
+- **remove** — revoke an existing Service Provider
+- **transfer-admin** — transfer SP administration to another wallet
+
+Examples:
+
+```powershell
+python src/SPManager.py check 0xYourServiceProviderAddress
+python src/SPManager.py add 0xYourServiceProviderAddress
+python src/SPManager.py remove 0xYourServiceProviderAddress
+python src/SPManager.py transfer-admin 0xNewAdminAddress
+```
+
+The admin account is the deployment wallet by default. These commands operate on the deployed Counter contract resolved through the PRE contract address.
+
+Operational guidance:
+
+- Use `check` before onboarding or revoking an address.
+- Use `add` when a new Service Provider must be authorized to call `reEncrypt()`.
+- Use `remove` immediately if a Service Provider is compromised or no longer trusted.
+- Use `transfer-admin` only when you intentionally rotate governance of SP management.
+
+All write operations performed through [src/SPManager.py](src/SPManager.py) are on-chain transactions and consume gas.
+
+### Step 6: review gas usage
+
+```powershell
+python src/GasReporter.py
+```
+
+This script summarizes:
+
+- deployment gas for the PRE deployment transaction
+- the gas price used during deployment
+- runtime gas consumed by `reEncrypt()` and SP admin operations
+- the fact that read-only calls such as `getCount()` and `check` use `eth_call` and consume `0` on-chain gas
+
+Important note:
+
+- The Counter contract is created **internally** during PRE deployment.
+- Because of that, Counter creation does **not** have a separate external deployment transaction or separate gas price.
+- The PRE deployment transaction gas covers both PRE and Counter creation.
+
 ## Expected generated files
 
 After a normal run, the following important files should exist or be updated:
@@ -156,6 +214,9 @@ After a normal run, the following important files should exist or be updated:
 - [contracts/compiled/compiler_info.json](contracts/compiled/compiler_info.json)
 - [contracts/compiled/PRE.json](contracts/compiled/PRE.json)
 - [contracts/compiled/Counter.json](contracts/compiled/Counter.json)
+- [data/Counter_compData.json](data/Counter_compData.json)
+- [data/count_contract_info.json](data/count_contract_info.json)
+- [data/gas_report.json](data/gas_report.json)
 
 ## Benchmarks
 
@@ -186,18 +247,56 @@ For benchmark-specific notes, see [benchmarks/README.md](benchmarks/README.md).
 ## Recommended full workflow
 
 ```powershell
-conda activate eccvenv
+# activate your Python environment
 python src/CODeployment.py
 python src/SP.py
 python src/CountChecker.py
+python src/SPManager.py check 0xYourServiceProviderAddress
+python src/GasReporter.py
 python benchmarks/bench_offchain.py
 python benchmarks/bench_reencrypt.py
 ```
+
+## Gas accounting by actor and operation
+
+The project now reports or derives gas usage for blockchain-facing actions by role.
+
+### Content Owner (CO)
+
+- **Operation:** deploy PRE and Counter via [src/CODeployment.py](src/CODeployment.py)
+- **Gas:** consumed on-chain
+- **Reported in:** console output and [data/gas_report.json](data/gas_report.json)
+- **Note:** one deployment transaction creates both PRE and Counter
+
+### Service Provider (SP)
+
+- **Operation:** call `reEncrypt()` via [src/SP.py](src/SP.py)
+- **Gas:** consumed on-chain
+- **Reported in:** console output and [data/gas_report.json](data/gas_report.json)
+- **Note:** failed `reEncrypt()` transactions still consume gas and are also recorded
+
+### SP Admin
+
+- **Operations:** `add`, `remove`, `transfer-admin` via [src/SPManager.py](src/SPManager.py)
+- **Gas:** consumed on-chain
+- **Reported in:** console output and [data/gas_report.json](data/gas_report.json)
+
+### User / Reader
+
+- **Operation:** `getCount()` via [src/CountChecker.py](src/CountChecker.py)
+- **Gas:** `0` on-chain because it uses `eth_call`
+
+### Read-only SP checks
+
+- **Operation:** `python src/SPManager.py check 0x...`
+- **Gas:** `0` on-chain because it uses `eth_call`
 
 ## Troubleshooting
 
 - If the block explorer does not show the contract immediately, wait for indexing and verify the address on the Sepolia network.
 - If you redeploy using [src/CODeployment.py](src/CODeployment.py), rerun [src/SP.py](src/SP.py) and [src/CountChecker.py](src/CountChecker.py) against the new deployment.
+- If you rotate or revoke a Service Provider, use [src/SPManager.py](src/SPManager.py) instead of redeploying the contracts.
+- If you want a consolidated gas summary, run [src/GasReporter.py](src/GasReporter.py).
 - If a script cannot find a JSON file, make sure the deployment step completed first.
 - If transaction execution fails, verify `.env` values, wallet funding, and RPC connectivity.
 
