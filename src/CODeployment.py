@@ -17,13 +17,17 @@ from dotenv import load_dotenv
 import solcx
 from solcx import compile_standard, install_solc
 
+
 # ---------------------------------------------------------------------------
 # Path constants (resolved relative to this file so the project runs correctly
 # regardless of the working directory)
 # ---------------------------------------------------------------------------
-_ROOT          = Path(__file__).resolve().parent.parent
-_DATA_DIR      = _ROOT / "data"
+_ROOT = Path(__file__).resolve().parent.parent
+_DATA_DIR = _ROOT / "data"
 _CONTRACTS_DIR = _ROOT / "contracts"
+_COMPILED_CONTRACTS_DIR = _CONTRACTS_DIR / "compiled"
+
+
 
 
 class CO:
@@ -315,18 +319,41 @@ def format_address_for_constructor(address_str):
     return [f"0x{hashed}"]
 
 
+def _extract_pre_artifact(compiled_data):
+    """Return the PRE contract artifact from normalized or legacy compiled JSON."""
+    if not isinstance(compiled_data, dict):
+        raise ValueError("Compiled contract data is not a JSON object.")
+
+    pre_artifact = compiled_data.get("PRE")
+    if isinstance(pre_artifact, dict) and "abi" in pre_artifact and "bytecode" in pre_artifact:
+        return pre_artifact
+
+    for _, artifact in compiled_data.items():
+        if not isinstance(artifact, dict):
+            continue
+
+        abi = artifact.get("abi")
+        bytecode = artifact.get("bytecode")
+        if not abi or not bytecode:
+            continue
+
+        has_reencrypt = any(
+            isinstance(item, dict) and item.get("type") == "function" and item.get("name") == "reEncrypt"
+            for item in abi
+        )
+        if has_reencrypt:
+            return artifact
+
+    raise ValueError("Could not find PRE contract ABI/bytecode in the JSON file.")
+
+
 def deploy_contract(c1, c2, c3, c4, c5p):
 
     with open(_DATA_DIR / 'PRE_compData1.json', 'r') as f:
         data = json.load(f)
-        # contract_name = 'PRE'
-        # contract_abi = None
-        # contract_bytecode = None
-        if "PRE" not in data or "abi" not in data["PRE"] or "bytecode" not in data["PRE"]:
-            raise ValueError("Could not find `PRE` contract ABI/bytecode in the JSON file.")
-
-        contract_abi = data["PRE"]["abi"]
-        contract_bytecode = data["PRE"]["bytecode"]
+        pre_artifact = _extract_pre_artifact(data)
+        contract_abi = pre_artifact["abi"]
+        contract_bytecode = pre_artifact["bytecode"]
     #     compdata = json.load(f)
     #   #  if compdata['contractName'] == 'PRE':
     #     contract_abi = compdata['abi']
@@ -415,7 +442,9 @@ def compile_solidity(solidity_file, solidity_version):
         # Extract contract name (handles multiple contracts)
         compiled_data = {}
         for contract_path, contract_data in compiled_sol.items():
-            contract_name = contract_path.split(':')[1]
+            contract_name = contract_path.rsplit(':', 1)[-1]
+            if contract_name.endswith('.sol'):
+                contract_name = Path(contract_name).stem
             compiled_data[contract_name] = {
                 "abi": contract_data['abi'],
                 "bytecode": contract_data['bin']
@@ -440,6 +469,29 @@ def write_compiled_to_json(compiled_data, output_file):
         print(f"Compiled data written to {output_file}")
     except Exception as e:
         print(f"Error writing to JSON file: {e}")
+
+
+def write_compiled_contract_files(compiled_data, compiler_version, output_dir):
+    """Write per-contract artifacts and compiler metadata under contracts/compiled/."""
+    try:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        compiler_info = {
+            "compiler_version": compiler_version,
+            "contracts": sorted(compiled_data.keys())
+        }
+        with open(output_dir / "compiler_info.json", "w") as f:
+            json.dump(compiler_info, f, indent=4)
+
+        for contract_name, artifact in compiled_data.items():
+            with open(output_dir / f"{contract_name}.json", "w") as f:
+                json.dump(artifact, f, indent=4)
+
+        print(f"Compiler version: {compiler_version}")
+        print(f"Compiled contracts written to {output_dir}")
+    except Exception as e:
+        print(f"Error writing compiled contract artifacts: {e}")
 
 
 def generate_128bit_symmetric_key():
@@ -476,7 +528,9 @@ def main():
         compiled_data = compile_solidity(solidity_file_path, solidity_version_to_use)
 
         if compiled_data:
+            compiler_version = str(solcx.get_solc_version())
             write_compiled_to_json(compiled_data, output_json_file)
+            write_compiled_contract_files(compiled_data, compiler_version, _COMPILED_CONTRACTS_DIR)
         else:
             print("Compilation failed.")
 

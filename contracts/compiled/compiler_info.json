@@ -1,0 +1,9 @@
+{
+    "compiler_version": "0.7.6",
+    "contracts": [
+        "Counter",
+        "EllipticCurve",
+        "FastEcMul",
+        "PRE"
+    ]
+}
