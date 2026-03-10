@@ -105,6 +105,11 @@ def main():
 	check_parser = subparsers.add_parser("check", help="Check whether an address is allowed")
 	check_parser.add_argument("address", help="Service provider wallet address")
 
+	proof_parser = subparsers.add_parser("set-proof-key", help="Register or update a service provider proof public key")
+	proof_parser.add_argument("address", help="Service provider wallet address")
+	proof_parser.add_argument("pubx", help="Proof public key X coordinate")
+	proof_parser.add_argument("puby", help="Proof public key Y coordinate")
+
 	admin_parser = subparsers.add_parser("transfer-admin", help="Transfer service-provider admin role")
 	admin_parser.add_argument("address", help="New admin wallet address")
 
@@ -115,8 +120,11 @@ def main():
 	print(f"Counter contract: {counter_address}")
 
 	if args.command == "check":
-		allowed = counter_contract.functions.isAllowed(Web3.to_checksum_address(args.address)).call()
+		target = Web3.to_checksum_address(args.address)
+		allowed = counter_contract.functions.isAllowed(target).call()
+		proof_key = counter_contract.functions.getProofPublicKey(target).call()
 		print(f"Allowed: {allowed}")
+		print(f"Proof key: x={proof_key[0]}, y={proof_key[1]}, registered={proof_key[2]}")
 		return
 
 	target = Web3.to_checksum_address(args.address)
@@ -129,6 +137,16 @@ def main():
 	elif args.command == "transfer-admin":
 		tx_hash = send_admin_transaction(w3, counter_contract, "transferAdmin", target)
 		print(f"Transferred admin to {target}. Tx hash: {tx_hash}")
+	elif args.command == "set-proof-key":
+		tx_hash = send_admin_transaction(
+			w3,
+			counter_contract,
+			"setProofPublicKey",
+			Web3.to_checksum_address(args.address),
+			int(args.pubx),
+			int(args.puby),
+		)
+		print(f"Registered proof key for {Web3.to_checksum_address(args.address)}. Tx hash: {tx_hash}")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,8 @@ contract PRE
     // SECP256k1 curve constants
     uint public constant PRIME_FIELD_MODULUS  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     uint public constant CURVE_ORDER  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+    uint public constant GENERATOR_X = 55066263022277343669578718895168534326250603453777594175500187360389116729240;
+    uint public constant GENERATOR_Y = 32670510020758816978083085130507043184471273380659243275938904335757337482424;
     uint public constant LAMBDA = 0x5363ad4cc05c30e0a5261c028812645a122e22ea20816678df02967c1b23bd72;
     uint public constant BETA = 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee;
 
@@ -25,6 +27,7 @@ contract PRE
     uint private immutable c5TimesP;
     uint private immutable hash;    
     address public immutable serviceProviderAdmin;
+    mapping(bytes32 => bool) private usedProofNonces;
 
     // Address for the counting contract
     Counter public immutable countingContract;
@@ -154,24 +157,95 @@ contract PRE
         uint rk1;
         uint rk2;
         uint rk3;
-        int256 i;
-        int256 o;
-        int256 y;
-        int256 z;
-        int256 w;
-        int256 alpha;
-        int256 gamma;
+        uint proofCommitmentX;
+        uint proofCommitmentY;
+        uint proofResponse;
+        uint proofNonce;
+        uint proofExpiry;
+    }
+
+    function computeProofChallenge(
+        uint proofPublicKeyX,
+        uint proofPublicKeyY,
+        ReEncryptInputs memory params
+    ) internal view returns (uint)
+    {
+        return uint256(
+            keccak256(
+                abi.encodePacked(
+                    address(this),
+                    msg.sender,
+                    params.rk1,
+                    params.rk2,
+                    params.rk3,
+                    params.proofCommitmentX,
+                    params.proofCommitmentY,
+                    proofPublicKeyX,
+                    proofPublicKeyY,
+                    params.proofNonce,
+                    params.proofExpiry
+                )
+            )
+        ) % CURVE_ORDER;
+    }
+
+    function verifySchnorrProof(
+        uint proofPublicKeyX,
+        uint proofPublicKeyY,
+        ReEncryptInputs memory params
+    ) internal view returns (bool)
+    {
+        require(proofPublicKeyX != 0 && proofPublicKeyY != 0, "Missing proof key");
+        require(params.proofCommitmentX != 0 && params.proofCommitmentY != 0, "Invalid commitment");
+        require(
+            EllipticCurve.isOnCurve(proofPublicKeyX, proofPublicKeyY, 0, 7, PRIME_FIELD_MODULUS),
+            "Proof key not on curve"
+        );
+        require(
+            EllipticCurve.isOnCurve(params.proofCommitmentX, params.proofCommitmentY, 0, 7, PRIME_FIELD_MODULUS),
+            "Commitment not on curve"
+        );
+
+        uint challenge = computeProofChallenge(proofPublicKeyX, proofPublicKeyY, params);
+        (uint lhsX, uint lhsY) = EllipticCurve.ecMul(
+            params.proofResponse,
+            GENERATOR_X,
+            GENERATOR_Y,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+        (uint rhsProofX, uint rhsProofY) = EllipticCurve.ecMul(
+            challenge,
+            proofPublicKeyX,
+            proofPublicKeyY,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+        (uint rhsX, uint rhsY) = EllipticCurve.ecAdd(
+            params.proofCommitmentX,
+            params.proofCommitmentY,
+            rhsProofX,
+            rhsProofY,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+
+        return lhsX == rhsX && lhsY == rhsY;
     }
 
     function reEncrypt(ReEncryptInputs memory params)
         public
         returns (uint, uint, bytes memory, uint)
     {
+        require(block.timestamp <= params.proofExpiry, "Proof expired");
         require(countingContract.isAllowed(msg.sender), "Unauthorized service provider");
-        require(
-            verifyProof(params.i, params.o, params.y, params.z, params.w, params.alpha, params.gamma),
-            "Proof verification failed"
-        );
+        bytes32 nonceKey = keccak256(abi.encodePacked(msg.sender, params.proofNonce));
+        require(!usedProofNonces[nonceKey], "Proof already used");
+
+        (uint proofPublicKeyX, uint proofPublicKeyY, bool proofKeyRegistered) = countingContract.getProofPublicKey(msg.sender);
+        require(proofKeyRegistered, "Missing proof key");
+        require(verifySchnorrProof(proofPublicKeyX, proofPublicKeyY, params), "Proof verification failed");
+        usedProofNonces[nonceKey] = true;
 
         // Perform re-encryption
         (uint _c1prime, uint _c2prime, uint _c4prime) = performReEncryption(params.rk1, params.rk2, params.rk3);
@@ -216,14 +290,23 @@ contract PRE
 
 contract Counter
 {
+    struct ProofPublicKey {
+        uint x;
+        uint y;
+        bool isSet;
+    }
+
     address private immutable owner;
     address public admin;
     mapping(address => bool) private allowedAddresses;
+    mapping(address => ProofPublicKey) private proofPublicKeys;
     mapping(address => uint) public addressCounts;
 
     event AllowedAddressAdded(address indexed account);
     event AllowedAddressRemoved(address indexed account);
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
+    event ProofPublicKeySet(address indexed account, uint indexed x, uint indexed y);
+    event ProofPublicKeyCleared(address indexed account);
 
     modifier onlyAdmin()
     {
@@ -252,6 +335,13 @@ contract Counter
         allowedAddresses[account] = allowed;
     }
 
+    function _setProofPublicKey(address account, uint pubX, uint pubY) internal
+    {
+        require(account != address(0), "Zero address");
+        require(pubX != 0 && pubY != 0, "Zero proof key");
+        proofPublicKeys[account] = ProofPublicKey({x: pubX, y: pubY, isSet: true});
+    }
+
     function isAllowed(address account) public view returns (bool)
     {
         return allowedAddresses[account];
@@ -264,11 +354,26 @@ contract Counter
         emit AllowedAddressAdded(account);
     }
 
+    function setProofPublicKey(address account, uint pubX, uint pubY) external onlyAdmin
+    {
+        require(allowedAddresses[account], "Address not allowed");
+        _setProofPublicKey(account, pubX, pubY);
+        emit ProofPublicKeySet(account, pubX, pubY);
+    }
+
+    function getProofPublicKey(address account) external view returns (uint, uint, bool)
+    {
+        ProofPublicKey memory key = proofPublicKeys[account];
+        return (key.x, key.y, key.isSet);
+    }
+
     function removeAllowedAddress(address account) external onlyAdmin
     {
         require(allowedAddresses[account], "Address not allowed");
         _setAllowedAddress(account, false);
+        delete proofPublicKeys[account];
         emit AllowedAddressRemoved(account);
+        emit ProofPublicKeyCleared(account);
     }
 
     function transferAdmin(address newAdmin) external onlyAdmin

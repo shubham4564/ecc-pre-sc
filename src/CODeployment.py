@@ -11,6 +11,7 @@ from web3 import Web3
 from TTP import TTP
 import os
 import json
+import secrets
 from pathlib import Path
 from dotenv import load_dotenv
 from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summary
@@ -28,6 +29,7 @@ _DATA_DIR = _ROOT / "data"
 _CONTRACTS_DIR = _ROOT / "contracts"
 _COMPILED_CONTRACTS_DIR = _CONTRACTS_DIR / "compiled"
 _GAS_REPORT_FILE = _DATA_DIR / "gas_report.json"
+_SP_PROOF_FILE = _DATA_DIR / "sp_proof_material.json"
 
 
 
@@ -263,6 +265,28 @@ def save_contract_address(contract_address):
         raise
 
 
+def ensure_sp_proof_material(wallet_address):
+    wallet_address = Web3.to_checksum_address(wallet_address)
+
+    if _SP_PROOF_FILE.exists():
+        with open(_SP_PROOF_FILE, "r") as f:
+            payload = json.load(f)
+        if payload.get("wallet_address", "").lower() == wallet_address.lower():
+            return payload
+
+    secret_scalar = secrets.randbelow(int(SECP256k1.order) - 1) + 1
+    public_point = secret_scalar * SECP256k1.generator
+    payload = {
+        "wallet_address": wallet_address,
+        "secret_scalar": str(secret_scalar),
+        "public_key_x": str(public_point.x()),
+        "public_key_y": str(public_point.y()),
+    }
+    with open(_SP_PROOF_FILE, "w") as f:
+        json.dump(payload, f, indent=4)
+    return payload
+
+
 def save_count_contract_address(contract_address):
     """Save Counter contract address to JSON file."""
     try:
@@ -405,6 +429,7 @@ def deploy_contract(c1, c2, c3, c4, c5p):
     web3 = Web3(Web3.HTTPProvider('https://eth-sepolia.g.alchemy.com/v2/6TCy-aXdMGmNp80ebxCB9CdETCjCgdV5'))
     
     account = WALLET_ADDRESS
+    sp_proof_material = ensure_sp_proof_material(account)
 
     if not web3.is_connected():
         raise Exception("Failed to connect to network")
@@ -453,6 +478,25 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         pre_contract_address = Web3.to_checksum_address(str(tx_receipt.contractAddress))
         deployed_pre = web3.eth.contract(address=pre_contract_address, abi=contract_abi)
         counter_contract_address = Web3.to_checksum_address(deployed_pre.functions.countingContract().call())
+        with open(_DATA_DIR / 'Counter_compData.json', 'r') as f:
+            counter_abi = json.load(f)['abi']
+        counter_contract = web3.eth.contract(address=counter_contract_address, abi=counter_abi)
+        set_proof_tx = counter_contract.functions.setProofPublicKey(
+            account,
+            int(sp_proof_material['public_key_x']),
+            int(sp_proof_material['public_key_y'])
+        ).build_transaction({
+            'from': account,
+            'nonce': web3.eth.get_transaction_count(account),
+            'gas': min(500000, block_gas_limit - 100000),
+            'gasPrice': web3.eth.gas_price
+        })
+        signed_set_proof_tx = web3.eth.account.sign_transaction(set_proof_tx, private_key=PRIVATE_KEY)
+        raw_set_proof_tx = getattr(signed_set_proof_tx, 'rawTransaction', None) or getattr(signed_set_proof_tx, 'raw_transaction')
+        set_proof_hash = web3.eth.send_raw_transaction(raw_set_proof_tx)
+        set_proof_receipt = web3.eth.wait_for_transaction_receipt(set_proof_hash)
+        if set_proof_receipt['status'] != 1:
+            raise RuntimeError(f"Failed to register proof public key: {set_proof_hash.hex()}")
         gas_summary = format_tx_gas_summary(
             web3,
             tx_hash,
@@ -467,6 +511,19 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         )
         print_tx_gas_summary(gas_summary)
         GasReportStore(_GAS_REPORT_FILE).append(gas_summary)
+        proof_key_summary = format_tx_gas_summary(
+            web3,
+            set_proof_hash,
+            set_proof_receipt,
+            label="setProofPublicKey",
+            actor="CO",
+            extra={
+                'counter_contract_address': counter_contract_address,
+                'registered_wallet_address': account,
+            },
+        )
+        print_tx_gas_summary(proof_key_summary)
+        GasReportStore(_GAS_REPORT_FILE).append(proof_key_summary)
         return pre_contract_address, counter_contract_address
         
     except Exception as e:

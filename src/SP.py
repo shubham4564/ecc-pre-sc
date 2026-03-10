@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import math
 import secrets
 import sys
+import time
 from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summary
 
 # ---------------------------------------------------------------------------
@@ -21,6 +22,7 @@ from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summar
 _ROOT     = Path(__file__).resolve().parent.parent
 _DATA_DIR = _ROOT / "data"
 _GAS_REPORT_FILE = _DATA_DIR / "gas_report.json"
+_SP_PROOF_FILE = _DATA_DIR / "sp_proof_material.json"
 
 
 def write_reencrypt_result(c1p, c2p, c3p, c4p):
@@ -32,6 +34,20 @@ def write_reencrypt_result(c1p, c2p, c3p, c4p):
     }
     with open(_DATA_DIR / "reencrypt_result.json", "w") as f:
         json.dump(payload, f, indent=4)
+
+
+def load_sp_proof_material(expected_wallet_address):
+    with open(_SP_PROOF_FILE, "r") as f:
+        payload = json.load(f)
+
+    configured_wallet = payload.get("wallet_address")
+    if not configured_wallet:
+        raise ValueError("Missing wallet_address in sp_proof_material.json")
+
+    if configured_wallet.lower() != Web3.to_checksum_address(expected_wallet_address).lower():
+        raise ValueError("sp_proof_material.json does not match the active WALLET_ADDRESS")
+
+    return payload
 
 class SP:
     ttp = TTP.TTP() 
@@ -166,7 +182,7 @@ class SP:
             print(f"Error loading parameters: {str(e)}")
             raise
 
-    def requestCprimeFromeContract(self, rk1, rk2, rk3, i, o, y, z, w, alpha, gamma):
+    def requestCprimeFromeContract(self, rk1, rk2, rk3, proof_commitment_x, proof_commitment_y, proof_response, proof_nonce, proof_expiry):
         """Setup web3 and contract instance"""
         load_dotenv()
         PRIVATE_KEY = os.getenv('PRIVATE_KEY')
@@ -193,11 +209,26 @@ class SP:
 
 
         contract = web3.eth.contract(address=contract_address, abi=contract_abi)
-        params = { 'rk1': rk1, 'rk2': rk2, 'rk3': rk3, 'i': i, 'o': o, 'y': y, 'z': z, 'w': w, 'alpha': alpha, 'gamma': gamma }
+        params = {
+            'rk1': rk1,
+            'rk2': rk2,
+            'rk3': rk3,
+            'proofCommitmentX': proof_commitment_x,
+            'proofCommitmentY': proof_commitment_y,
+            'proofResponse': proof_response,
+            'proofNonce': proof_nonce,
+            'proofExpiry': proof_expiry,
+        }
         block = web3.eth.get_block('latest')
         block_gas_limit = block['gasLimit']
         # Build transaction
         try:
+            cPrime = contract.functions.reEncrypt(params).call({
+                'from': account,
+                'gas': min(7000000, block_gas_limit - 100000),
+                'gasPrice': web3.eth.gas_price
+            })
+
             result = contract.functions.reEncrypt(params).build_transaction({
                 'from': account,
                 'nonce': web3.eth.get_transaction_count(account),
@@ -225,13 +256,6 @@ class SP:
                 print(f"reEncrypt() transaction successful! Transaction hash: {tx_hash.hex()}")
                 print_tx_gas_summary(gas_summary)
                 GasReportStore(_GAS_REPORT_FILE).append(gas_summary)
-  
-                cPrime = contract.functions.reEncrypt(params).call({
-                'from': account,
-                'nonce': web3.eth.get_transaction_count(account),
-                'gas': min(7000000, block_gas_limit - 100000),
-                'gasPrice': web3.eth.gas_price
-            })
                 
                 if len(cPrime) == 4:
                     _c1prime, _c2prime, _c3, _c4prime = cPrime
@@ -263,6 +287,83 @@ class SP:
         except Exception as e:
             print(f"Transaction failed: {str(e)}")
             raise
+
+    def compute_proof_challenge(
+        self,
+        contract_address,
+        sender_address,
+        rk1,
+        rk2,
+        rk3,
+        proof_commitment_x,
+        proof_commitment_y,
+        proof_public_key_x,
+        proof_public_key_y,
+        proof_nonce,
+        proof_expiry,
+    ):
+        digest = Web3.solidity_keccak(
+            [
+                'address',
+                'address',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+                'uint256',
+            ],
+            [
+                Web3.to_checksum_address(contract_address),
+                Web3.to_checksum_address(sender_address),
+                int(rk1),
+                int(rk2),
+                int(rk3),
+                int(proof_commitment_x),
+                int(proof_commitment_y),
+                int(proof_public_key_x),
+                int(proof_public_key_y),
+                int(proof_nonce),
+                int(proof_expiry),
+            ],
+        )
+        return int.from_bytes(digest, byteorder='big') % self.q
+
+    def generate_reencryption_proof(self, contract_address, sender_address, rk1, rk2, rk3):
+        proof_material = load_sp_proof_material(sender_address)
+        proof_secret = int(proof_material['secret_scalar'])
+        proof_public_key_x = int(proof_material['public_key_x'])
+        proof_public_key_y = int(proof_material['public_key_y'])
+
+        witness_nonce = secrets.randbelow(self.q - 1) + 1
+        commitment = witness_nonce * SECP256k1.generator
+        proof_nonce = secrets.randbits(128)
+        proof_expiry = int(time.time()) + 600
+        challenge = self.compute_proof_challenge(
+            contract_address,
+            sender_address,
+            rk1,
+            rk2,
+            rk3,
+            commitment.x(),
+            commitment.y(),
+            proof_public_key_x,
+            proof_public_key_y,
+            proof_nonce,
+            proof_expiry,
+        )
+        proof_response = (witness_nonce + challenge * proof_secret) % self.q
+
+        return {
+            'proofCommitmentX': int(commitment.x()),
+            'proofCommitmentY': int(commitment.y()),
+            'proofResponse': int(proof_response),
+            'proofNonce': int(proof_nonce),
+            'proofExpiry': int(proof_expiry),
+        }
 
     def rekeygenerate(self):
         """Generate the re-encryption keys"""
@@ -485,32 +586,19 @@ def keccak256_encode_packed(*args):
 def main():
 
     sp = SP()
-    i = generate_large_prime(20)
-    o = generate_large_prime(20)
-    bytesize = 20
-    j = get_rand(bytesize)
-    v = get_rand(bytesize)
-    w = generate_large_prime(10)
-
-    y,z,A,B = computeCommitment(i,o,j,v,w)
-    gamma = computeChallenge(i,y,o,z,A,B,w)
-
-    # print("Generator value i:", i)
-    # print("Generator value o:", o)
-    # print("Secret v:", v)
-    # print("Random number j:", j)
-    # print("Large prime nunmber w:", w)
-    # print("Challenge gamma:", gamma)
-    
-
-    alpha = computeProof(j,gamma,v,w)
-    # print("Proof:", alpha)
-
     rk1, rk2, rk3 = sp.rekeygenerate()
     
     rk11 = mpz_to_uint256(rk1)
     rk22 = mpz_to_uint256(rk2)
     rk33 = mpz_to_uint256(rk3)
+
+    load_dotenv()
+    wallet_address = os.getenv('WALLET_ADDRESS')
+    if not wallet_address:
+        raise ValueError('Missing WALLET_ADDRESS in .env')
+
+    contract_address = get_contract_info()
+    proof = sp.generate_reencryption_proof(contract_address, wallet_address, rk11, rk22, rk33)
 
     # print("RK1:", rk11)
     # print("RK2:", rk22)    
@@ -551,7 +639,16 @@ def main():
 
     # print("Proven" if gamma == gamma_ else "Not Proven!")
 
-    c1p, c2p, c3p, c4p = sp.requestCprimeFromeContract(rk11, rk22, rk33, i, o, y, z, w, alpha, gamma)
+    c1p, c2p, c3p, c4p = sp.requestCprimeFromeContract(
+        rk11,
+        rk22,
+        rk33,
+        proof['proofCommitmentX'],
+        proof['proofCommitmentY'],
+        proof['proofResponse'],
+        proof['proofNonce'],
+        proof['proofExpiry'],
+    )
 
     print("C1':", c1p)
     print("C2':", c2p)

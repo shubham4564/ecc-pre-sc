@@ -1,14 +1,11 @@
 import TTP
 import json
-import sys
 from pathlib import Path
 from ecdsa.curves import SECP256k1
 from ecdsa.ellipticcurve import Point
 from ecdsa.numbertheory import inverse_mod
-import SP
 from cryptography.fernet import Fernet
 import base64
-import subprocess
 
 # ---------------------------------------------------------------------------
 # Path constants
@@ -47,7 +44,16 @@ class User:
                 raise KeyError("Missing 'parameters' in system_parameters.json")
                 
             param_dict = params['parameters']
-            required_keys = ['a_xp_x', 'a_yp_x', 'id_a', 'id_b', 'b_xp_x', 'b_yp_x', 'p_x', 'q', 'l_bits', 'n_bits']
+            required_keys = [
+                'a_xp_x', 'a_xp_y',
+                'a_yp_x', 'a_yp_y',
+                'id_a', 'id_b',
+                'b_xp_x', 'b_xp_y',
+                'b_yp_x', 'b_yp_y',
+                'p_x', 'p_y',
+                'q', 'l_bits', 'n_bits',
+                'b_x', 'b_y'
+            ]
             
             # Check all required keys exist
             for key in required_keys:
@@ -56,28 +62,43 @@ class User:
             
             # Extract and convert parameters
             self.a_xp_x = int(param_dict['a_xp_x'])
+            self.a_xp_y = int(param_dict['a_xp_y'])
             self.a_yp_x = int(param_dict['a_yp_x'])
+            self.a_yp_y = int(param_dict['a_yp_y'])
             self.id_a = param_dict['id_a']
             self.id_b = param_dict['id_b']
             self.b_xp_x = int(param_dict['b_xp_x'])
+            self.b_xp_y = int(param_dict['b_xp_y'])
             self.b_yp_x = int(param_dict['b_yp_x'])
+            self.b_yp_y = int(param_dict['b_yp_y'])
             self.p_x = int(param_dict['p_x'])
+            self.p_y = int(param_dict['p_y'])
             self.q = int(param_dict['q'])
             self.l_bits = int(param_dict['l_bits'])
             self.n_bits = int(param_dict['n_bits'])
+            self.b_x = int(param_dict['b_x'])
+            self.b_y = int(param_dict['b_y'])
+
+            self.a_xp = Point(SECP256k1.curve, self.a_xp_x, self.a_xp_y)
+            self.a_yp = Point(SECP256k1.curve, self.a_yp_x, self.a_yp_y)
+            self.b_xp = Point(SECP256k1.curve, self.b_xp_x, self.b_xp_y)
+            self.b_yp = Point(SECP256k1.curve, self.b_yp_x, self.b_yp_y)
+            self.p = Point(SECP256k1.curve, self.p_x, self.p_y)
 
 
             return {
-                'a_xp_x': self.a_xp_x,
-                'a_yp_x': self.a_yp_x,
+                'a_xp': self.a_xp,
+                'a_yp': self.a_yp,
                 'id_a': self.id_a,
                 'id_b': self.id_b,
-                'b_xp_x': self.b_xp_x,
-                'b_yp_x': self.b_yp_x,
-                'p_x': self.p_x,
+                'b_xp': self.b_xp,
+                'b_yp': self.b_yp,
+                'p': self.p,
                 'q': self.q,
                 'l_bits': self.l_bits,
-                'n_bits': self.n_bits
+                'n_bits': self.n_bits,
+                'b_x': self.b_x,
+                'b_y': self.b_y
             }
             
         except FileNotFoundError:
@@ -107,16 +128,18 @@ class User:
 
         # Load required parameters
         rk_params = self.get_redec_parameters()
-        self.a_xp_x = rk_params['a_xp_x']
-        self.a_yp_x = rk_params['a_yp_x']
+        self.a_xp = rk_params['a_xp']
+        self.a_yp = rk_params['a_yp']
         self.id_a = rk_params['id_a']
         self.id_b = rk_params['id_b']
-        self.b_xp_x = rk_params['b_xp_x']
-        self.b_yp_x = rk_params['b_yp_x']
-        self.p_x = rk_params['p_x']
+        self.b_xp = rk_params['b_xp']
+        self.b_yp = rk_params['b_yp']
+        self.p = rk_params['p']
         self.q = rk_params['q']
         self.l_bits = rk_params['l_bits']
         self.n_bits = rk_params['n_bits']
+        self.b_x = rk_params['b_x']
+        self.b_y = rk_params['b_y']
         
         
         # Contract returns x-coordinates only. Reconstruct points on secp256k1.
@@ -127,11 +150,9 @@ class User:
         if isinstance(c4_prime, int):
             c4_prime = Point(SECP256k1.curve, c4_prime, self.compute_y(c4_prime, SECP256k1.curve))
 
-        p_point = Point(SECP256k1.curve, self.p_x, self.compute_y(self.p_x, SECP256k1.curve))
-
         # Manually compute public key points
-        sk_pr_x = self.b_xp_x * p_point
-        sk_pr_y = self.b_yp_x * p_point
+        sk_pr_x = self.b_x * self.p
+        sk_pr_y = self.b_y * self.p
 
         # Hash the 2 IDs and both public keys
         s_prime = self.hash4(self.id_a, self.id_b, sk_pr_x.x(), sk_pr_y.x())
@@ -151,9 +172,9 @@ class User:
         sigma_in_binary = key_plus_sigma[len(key_plus_sigma) - self.l_bits:]
 
         # Compute point for Re-Decryption check
-        r = self.hash1(key, int(sigma_in_binary, 2), self.id_a, self.a_xp_x, self.a_yp_x)
-        verification_scalar = r * inverse_mod(s_prime, self.q) * (self.a_xp_x + self.a_yp_x)
-        verification_point = verification_scalar * p_point
+        r = self.hash1(key, int(sigma_in_binary, 2), self.id_a, self.a_xp.x(), self.a_yp.x())
+        verification_scalar = r * inverse_mod(s_prime, self.q) * (self.a_xp.x() + self.a_yp.x())
+        verification_point = verification_scalar * self.p
 
         # C4' must equal (s')^-1 * r * (pk_a1 + pk_a2) * P
         # if c4_prime.x() != verification_point.x() :
@@ -163,11 +184,7 @@ class User:
         return key
 
     def reqReEncContentKey(self):
-        """Invoke SP.py and retrieve structured re-encryption outputs."""
-        result = subprocess.run(['python', str(_SRC_DIR / 'SP.py')], capture_output=True, text=True)
-        if result.returncode != 0:
-            print(f"Error invoking SP.py: {result.stderr}")
-            return None, None, None, None
+        """Read structured re-encryption outputs produced by SP.py."""
         try:
             with open(_DATA_DIR / 'reencrypt_result.json', 'r') as f:
                 payload = json.load(f)
