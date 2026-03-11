@@ -189,7 +189,7 @@ contract PRE
         ) % CURVE_ORDER;
     }
 
-    function verifySchnorrProof(
+    function verifyZKProof(
         uint proofPublicKeyX,
         uint proofPublicKeyY,
         ReEncryptInputs memory params
@@ -244,7 +244,7 @@ contract PRE
 
         (uint proofPublicKeyX, uint proofPublicKeyY, bool proofKeyRegistered) = countingContract.getProofPublicKey(msg.sender);
         require(proofKeyRegistered, "Missing proof key");
-        require(verifySchnorrProof(proofPublicKeyX, proofPublicKeyY, params), "Proof verification failed");
+        require(verifyZKProof(proofPublicKeyX, proofPublicKeyY, params), "Proof verification failed");
         usedProofNonces[nonceKey] = true;
 
         // Perform re-encryption
