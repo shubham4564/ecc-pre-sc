@@ -42,6 +42,38 @@ python benchmarks/bench_increment_isolation.py [--iters N]
 - Uses `estimate_gas` from the PRE contract address for deterministic cold/warm readings with zero ZKP noise.
 - The differential mean and stdev serve as corroborating evidence; the `estimate_gas` values are the primary result.
 
+## Comprehensive timing benchmark
+Times every ECC-PRE process end-to-end using `perf_counter_ns` precision.
+
+Off-chain processes (100 iterations default, 5 warmup):
+
+```
+python benchmarks/bench_timing.py
+python benchmarks/bench_timing.py --offchain-iters 200
+```
+
+On-chain reEncrypt wall-clock latency (optional, requires `.env`):
+
+```
+python benchmarks/bench_timing.py --onchain --iters 5
+```
+
+- Output CSV: `benchmarks/timing_bench.csv` with columns `process,actor,category,iteration,time_ms`.
+- Output plot: `benchmarks/timing_bench.png` — horizontal bar charts (mean ± stdev) with individual data points, color-coded by actor (CO=blue, SP=green, User=orange).
+- Off-chain uses a log-scale x-axis (operations span ~0.05 ms to ~50 ms).
+- The `key_generate` bench suppresses the `system_parameters.json` disk write per iteration; the initial write happens once during setup.
+
+Processes timed:
+
+| Process | Actor | What is measured |
+|---|---|---|
+| `key_generate` | CO | SECP256k1 keypair + ephemeral scalar generation |
+| `encrypt` | CO | Full ECC-PRE encryption (c1–c5) of a 128-bit key |
+| `rekey_generate` | SP | Re-encryption key derivation (rk1, rk2, rk3) |
+| `zkp_proof_gen` | SP | Fiat-Shamir ZKP commitment + response |
+| `redecrypt` | User | Local re-decryption to recover plaintext key |
+| `reencrypt_tx` | SP | On-chain `reEncrypt()` tx round-trip (wall clock) |
+
 ## Tips
 - Keep RPC/provider and environment stable during testing for comparable results.
 - Use larger N (e.g., 50–200) for smoother statistics.
