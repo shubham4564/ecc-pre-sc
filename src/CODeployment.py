@@ -446,7 +446,8 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         int(c4.y()),  # C4 coordinates
         int(c5p.x()),                # C5 * P
         account,
-        [account]
+        [account],
+        True                         # countingEnabled = True for production
 
     ]
     

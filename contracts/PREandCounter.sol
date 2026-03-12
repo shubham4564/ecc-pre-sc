@@ -27,6 +27,7 @@ contract PRE
     uint private immutable c5TimesP;
     uint private immutable hash;    
     address public immutable serviceProviderAdmin;
+    bool private immutable countingEnabled;
     mapping(bytes32 => bool) private usedProofNonces;
 
     // Address for the counting contract
@@ -44,7 +45,8 @@ contract PRE
         uint _c4Y,
         uint _c5TimesP,
         address _serviceProviderAdmin,
-        address[] memory _allowedAddresses
+        address[] memory _allowedAddresses,
+        bool _countingEnabled
     ) 
     {
         require(_serviceProviderAdmin != address(0), "Zero admin");
@@ -58,6 +60,7 @@ contract PRE
         c5TimesP = _c5TimesP;
         hash = uint256(keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))) % PRIME_FIELD_MODULUS ;
         serviceProviderAdmin = _serviceProviderAdmin;
+        countingEnabled = _countingEnabled;
         countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
     }
 
@@ -271,7 +274,9 @@ contract PRE
         (_c4prime, _c2prime) = EllipticCurve.ecAdd(__, _c1prime, c4X, c4Y, 0, PRIME_FIELD_MODULUS);
 
         require(c5TimesP == _c4prime, "c5P != c4 + h3(c1, c2, c3, c4)c2");
-        countingContract.increment(msg.sender);
+        if (countingEnabled) {
+            countingContract.increment(msg.sender);
+        }
 
         points[0] = c1X;
         points[1] = c1Y;

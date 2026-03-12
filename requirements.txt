@@ -2,3 +2,5 @@ ecdsa==0.18.0
 eth-hash==0.3.3
 pycryptodome==3.21.0
 six==1.16.0
+web3==7.14.1
+py-solc-x==2.0.5
