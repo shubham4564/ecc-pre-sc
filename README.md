@@ -17,6 +17,9 @@ In short, the repository combines:
 - [src/SP.py](src/SP.py)  
 	Generates re-encryption keys, calls `reEncrypt()` on-chain, retrieves returned values, and re-decrypts them locally.
 
+- [src/User.py](src/User.py)  
+	Loads system parameters and performs local re-decryption of the re-encrypted ciphertext returned by the SP.
+
 - [src/CountChecker.py](src/CountChecker.py)  
 	Reads the counter contract state and prints the current count for the configured wallet.
 
@@ -27,7 +30,10 @@ In short, the repository combines:
 	Summarizes deployment gas and recorded runtime gas usage for blockchain-interacting operations.
 
 - [contracts/PREandCounter.sol](contracts/PREandCounter.sol)  
-	Contains the PRE contract and the counter contract.
+	Contains the PRE contract and the counter contract. The PRE constructor accepts a `countingEnabled` flag; when `true`, each successful `reEncrypt()` call increments the counter.
+
+- [contracts/FastEcMul.sol](contracts/FastEcMul.sol)  
+	Library used internally by PREandCounter.sol for fast elliptic curve scalar multiplication via wNAF representation and scalar decomposition through the SECP256k1 endomorphism.
 
 - [benchmarks](benchmarks)  
 	Contains scripts to measure off-chain and on-chain performance.
@@ -217,6 +223,7 @@ After a normal run, the following important files should exist or be updated:
 - [data/Counter_compData.json](data/Counter_compData.json)
 - [data/count_contract_info.json](data/count_contract_info.json)
 - [data/gas_report.json](data/gas_report.json)
+- [benchmarks/increment_isolation_bench.csv](benchmarks/increment_isolation_bench.csv) — generated after running the increment isolation benchmark
 
 ## Benchmarks
 
@@ -242,6 +249,18 @@ Output:
 
 - [benchmarks/reencrypt_bench.csv](benchmarks/reencrypt_bench.csv)
 
+### Increment isolation benchmark
+
+Measures the gas cost attributable exclusively to `Counter.increment()` by deploying two PRE contract instances that are identical except for the `countingEnabled` flag, then computing the per-call gas delta. Also reports direct `estimate_gas` measurements for cold (0→1 storage slot) and warm (n→n+1) increment costs.
+
+```powershell
+python benchmarks/bench_increment_isolation.py [--iters N]
+```
+
+Output:
+
+- [benchmarks/increment_isolation_bench.csv](benchmarks/increment_isolation_bench.csv) — columns: `iteration`, `gas_with_counting`, `gas_without_counting`, `delta_gas`
+
 For benchmark-specific notes, see [benchmarks/README.md](benchmarks/README.md).
 
 ## Recommended full workflow
@@ -255,6 +274,7 @@ python src/SPManager.py check 0xYourServiceProviderAddress
 python src/GasReporter.py
 python benchmarks/bench_offchain.py
 python benchmarks/bench_reencrypt.py
+python benchmarks/bench_increment_isolation.py
 ```
 
 ## Gas accounting by actor and operation

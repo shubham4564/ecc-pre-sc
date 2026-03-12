@@ -31,6 +31,17 @@ python benchmarks/bench_offchain.py
 ```
 - Edit the script to import and call your real function(s) instead of the `_noop` placeholder.
 
+## Increment isolation benchmark
+Measures the gas cost attributable exclusively to `Counter.increment()` by deploying two PRE contract instances — one with `countingEnabled=True` and one with `countingEnabled=False` — using an identical ciphertext, then computing the per-call gas delta. Also reports direct `estimate_gas` readings for cold (first call, 0→1 storage slot) and warm (subsequent calls, n→n+1) increment costs.
+
+```
+python benchmarks/bench_increment_isolation.py [--iters N]
+```
+- Output CSV: `benchmarks/increment_isolation_bench.csv` with columns `iteration,gas_with_counting,gas_without_counting,delta_gas`.
+- Console prints cold gas, warm gas, mean reEncrypt gas, overhead percentages, and delta mean/stdev.
+- Uses `estimate_gas` from the PRE contract address for deterministic cold/warm readings with zero ZKP noise.
+- The differential mean and stdev serve as corroborating evidence; the `estimate_gas` values are the primary result.
+
 ## Tips
 - Keep RPC/provider and environment stable during testing for comparable results.
 - Use larger N (e.g., 50–200) for smoother statistics.
