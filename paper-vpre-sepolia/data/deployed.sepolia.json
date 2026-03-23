@@ -1,0 +1,19 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "evaluator": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "authentication": "0xB57a3Eba5c03011CBce45b9Cc8Bd2c30Acf9ec0c",
+  "dataList": "0x875a6f70e73bA730a484C9fBc9E7581155454A63",
+  "fundFlow": "0x2c53C2b605728E42a9ef6361e2Ee528C5CB8FA50",
+  "trading": "0x9f031d355637A87871A942377670893E2D83e51B",
+  "tradeWindowSeconds": 3600,
+  "tx": {
+    "authDeploy": "0x9307519ae158d20fd3ed71a1f5abf847b0891bc416ccaa3bdcffac6d6241530f",
+    "dataListDeploy": "0x0f0b348f961762768878a4a13077f56f722c611c0f7222211a78fedd1433bdb8",
+    "fundFlowDeploy": "0x1b10928183abd03d4ec3a3cb68251013c4d3726f4f288fae185ba832418a1234",
+    "tradingDeploy": "0x52c79e87722e8d537c7380ccb03434325e75eb84d9c98c3a9a3631434347ceb6",
+    "setTradingOnDataList": "0x859f71fc01588c374676f2b3fa8f4f7005ffb402e62c55f899574f5d6fd99bf5",
+    "setTradingOnFundFlow": "0x90ea631737419c1b90935bb53ed41780039579733aaff9b7be2a3a9efd26c196"
+  }
+}

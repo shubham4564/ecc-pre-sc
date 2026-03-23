@@ -1,0 +1,1333 @@
+IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026 235
+Fair Data Trading on Blockchain Through Veriﬁable
+Proxy Re-Encryption
+Ziyang Ji , Jie Zhang ,K aL o kM a n , Steven Guan, and Nguyen Van Huynh , Member, IEEE
+Abstract—Data trading has become a fundamental category
+of commerce in the current digital era, bringing along sub-
+stantial opportunities for economic activities. The emergence of
+blockchain facilitates decentr alized data trading, empowering
+users to maintain complete control over their own data and
+enabling direct peer-to-peer transactions. However, while users
+possess complete control over the ir data product and asset in a
+decentralized trading environment, they must take responsibility
+for their behaviors and face the consequences of dishonest
+behaviors either from themselves or counterparties. Therefore,
+behavior fairness problems arise, such as the seller refusing
+to deliver the correct data product after receiving the money
+and the buyer failing to pay the outstanding balance after
+receiving the data product. This article addresses these issues by
+proposing a decentralized fair data trading ecosystem leveraging
+the capability of cryptography and smart contracts. A novel
+veriﬁable proxy re-encryption (VPRE) scheme is designed, which
+introduces the veriﬁability of re-encryption keys into the original
+PRE schemes. The scheme is implem ented using smart contracts,
+which ensures that trading can succeed if and only if the data
+seller provides a valid re-encryption key and the buyer pays
+the correct amount of money. Furthermore, experiments are
+conducted to evaluate the proposed ecosystem in terms of trading
+fairness, security, and cost. The results show that the proposed
+scheme can effectively terminate transactions involving fairness
+violations with affordable costs ranging from 39 276 Gwei to
+296 983 Gwei. Without our solution, these unfair transactions
+will proceed and consume 77 301 Gwei to 754 447 Gwei gas fees.
+Index Terms—Blockchain, data trading, proxy re-encryption,
+trading fairness.
+Received 26 June 2024; revised 18 April 2025 and 26 May 2025; accepted
+5 June 2025. Date of publication 10 July 2025; date of current version 6
+February 2026. This work was supported in part by the Research Development
+Fund at Xi’an Jiaotong-Liverpool University under Grant RDF-21-02-014,
+in part by the Teaching Development Fund under Grant TDF2223-R25-207,
+in part by the XJTLU Artiﬁcial Intelligence University Research Centre, in
+part by Jiangsu Province Engineerin g Research Centre of Data Science and
+Cognitive Computation, in part by Suzhou Industrial Park AI Innovation
+Platform under Grant YZCXPT2022103, and in part by Suzhou Municipal
+Key Laboratory for Intelligent Virtu al Engineering under Grant SZS2022004.
+(Corresponding author: Jie Zhang.)
+Ziyang Ji, Jie Zhang, Ka Lok Man, and Steven Guan are with the School of
+Advanced Technology, Xi’an Jiaotong-Liverpool University, Suzhou 215123,
+China (e-mail: Ziyang.Ji18@student.xjtlu.edu.cn; Jie.Zhang01@xjtlu.edu.cn;
+Ka.Man@xjtlu.edu.cn; Steven.Guan@xjtlu.edu.cn).
+Nguyen Van Huynh is with the Department of Electrical Engineering
+and Electronics, University of Liverpool, L69 3GJ Liverpool, U.K (e-mail:
+Huynh.Nguyen@liverpool.ac.uk).
+Digital Object Identiﬁ er 10.1109/TCSS.2025.3579478
+I. I NTRODUCTION
+D
+ATA is increasingly being recognized as a signiﬁcant
+asset, contributing immense value daily. Accompanied
+by the continuous generation of vast amounts of data, data
+trading platforms, which facilitate the discoveries and trans-
+actions of data products, are also experiencing rapid growth.
+The worldwide data marketplace platform market is expected
+to achieve 5739 US million dollars by 2030, with an anticipated
+compound annual growth rate of 25% [1]. A new trend in the
+data trading industry is a decentralized trading platform empow-
+ered by blockchain technology. So far, several blockchain-based
+decentralized trading systems have been proposed to overcome
+the shortcomings of centralized platforms and promote the data
+economy [2], [3], [4].
+While decentralized data trading platforms based on
+blockchain surpass centralized ones in transparency,
+consistency, and traceability, t hey face the more difﬁcult
+challenge of behavior fairness [5], [6], [7]. Speciﬁcally,
+violations of behavior fairness in data trading are caused by
+dishonest behavior of data sellers or buyers, either in intended
+or unintended manners. For example, a data seller may provide
+wrong or incomplete data after receiving money from a buyer,
+and a data buyer may refuse to pay the requested money after
+receiving the correct data from a seller. These problems can
+be addressed easily in a centralized platform where the trusted
+center keeps the data and money between the seller and buyer
+during trading procedures. However, there is no such trusted
+center on decentralized platforms.
+To handle behavior fairness problems in decentralized data
+trading systems, several pioneering solutions have been pro-
+posed. On the one hand, some studies focus on the approach that
+alleviates problems by mitigating the loss caused by the unfair
+behavior of buyers[8], [9]. The idea is to split the data into small
+units and sell one unit at a time so that only a tiny portion of
+the data is exposed to cheating buyers. Although this method
+can somewhat alleviate the problem, it is of no avail to behavior
+fairness problems caused by dishonest sellers. A more effective
+method to address the cheating behavior of buyers is through
+proxy re-encryption (PRE), which can transform the ciphertext
+of one user into that of another user [10], [11]. Through PRE,
+the seller outsources or provides the encrypted version of data
+in the ﬁrst place and generates a re-encryption key (rekey)
+for paid buyers once the seller receives the correct amount
+of money. Similar to the segregation approach, this method
+still cannot address behavior fairness issues caused by cheating
+2329-924X © 2025 IEEE. All rights reserved, includi ng rights for text and data mining, and train ing of artiﬁcial intelligen ce and similar technologi es.
+Personal use is permitted, but republication/redistribution requires IEEE permission. See https://www.ieee.org/publications/rights/index.html for more information.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+236 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+sellers. On the other hand, existing methods to address cheating
+sellers adopt after-the-fact mechanisms, including penalty solu-
+tions [12], [13] and reputation solutions [14], [15], [16]. These
+postevent solutions can help reduce behavior fairness violations
+caused by both the seller and the buyer. However, they cannot
+make up for victims’ losses.
+To thoroughly address the behavior fairness problem caused
+by both the seller and the buyer sides, this article proposes a
+new method that terminates the trading process once dishonest
+behaviors happen and thereby prevents the losses of the honest
+side. Speciﬁcally, we propose a veriﬁable proxy re-encryption
+(VPRE) scheme by introducing a re-encryption veriﬁcation
+mechanism into the basic PRE [17] scheme and implementing
+it via smart contracts, and then apply it into a decentralized
+data trading system to guarantee behavior fairness. In the VPRE
+scheme, before the re-encryption key is revealed and the money
+transfer is executed, the seller has to submit a commitment
+of having generated the re-encryption key for the buyer. The
+buyer then needs to compute a veriﬁcation key to check the
+commitment’s correctness. If both the re-encryption key and
+veriﬁcation key are correct, the veriﬁcation process will suc-
+ceed, leading to the disclosure of the re-encryption key and
+the successful completion of the money transfer. Otherwise,
+the veriﬁcation will fail, and the data trading process will be
+terminated with a few computational cost losses.
+The security of the system is evaluated via MythX [18],
+which is widely recognized as an advanced Ethereum smart
+contract security audit tool to assess security vulnerabilities and
+ﬂaws during the smart contract development process. Secure
+vulnerabilities were not found. Inaddition, to evaluate the func-
+tionality and performance of the new system, we develop a
+prototype and deploy the smart contract on Remix VM. Five
+test scenarios with a total of ten test cases involving behavior
+fairness are deﬁned and tested via a set of experiments. The
+results show that the proposed system can effectively address
+the behavior fairness problems by identifying violations and
+terminating trading activities, with 39 276 Gwei to 296 983
+Gwei of gas cost. These gas fees are used for intermediate op-
+erations. Notably, without our method, these trading operations
+involving unfair behaviors will be completed and consume gas
+fees ranging from 77 301 Gwei to 754 447 Gwei, which means
+that not only is the problem unaddressed, but also more gas fees
+are consumed.
+II. R
+ELATED WORK
+This section reviews existing approaches to the behavior fair-
+ness problem in decentralized data trading and representative
+PRE schemes for decentralized data sharing.
+In a decentralized data trading environment, both data sellers
+and buyers may engage in unfair practices, either intentionally
+or unintentionally. Below, we will review existing mechanisms
+aimed at regulating these unfair actions of participants.
+A. Solutions to Fairness Violation Caused by Data Buyers
+The primary form of fairness violations by buyers is refusing
+to make payment after receiving the product. To mitigate losses
+caused by these cheating buyers, Delgado-Segura et al. [8]
+divide the data product into mu ltiple small portions and reveal
+just a part of the data product before the completion of the
+trading. Bajoudah, Dong, and Missier [19] propose an IoT data
+trading scheme that involves setting multip le checkpoints to
+partition the entire stream data pr oduct into saleable intervals.
+The settlement necessitates the receipt provi ded by the data
+buyer at the end of each trading interval. If the buyer fraudu-
+lently refuses to conﬁrm the settlement after receiving the data,
+the seller bears losses limited to that speciﬁc section of data
+rather than the entire data product.
+The above data segmentation strategies can mitigate the
+seller’s losses but cannot entirely eliminate them. Another ap-
+proach to the problem of cheating buyers is based on the com-
+bination of smart contracts and PRE. Lu et al. propose a fair
+decentralized data trading system that utilizes searchable proxy
+re-encryption to ensure that the data product meets the desired
+speciﬁcations [10]. In this system, the buyer must deposit in
+advance to obtain the re-encryption key. This design prevents
+the buyer from denying the su itability of the purchased data
+and ensures that access to the data product is granted only
+after payment has been made. Similarly, Gao et al. propose
+a blockchain-based digital rights trading scheme that requires
+buyers to deposit funds before initiating a transaction[11].A f t e r
+that, the seller generates the re-encryption key for buyers who
+have deposited money to the smart contract and then submits the
+re-encryption key to obtain the money. These approaches can
+address unfair behavior caused by buyers. Unfortunately, they
+do not have any mechanism to check whether the re-encryption
+key submitted by the seller is the correct one. Therefore, buy-
+ers can violate beha vior fairness by submitting incorrect re-
+encryption keys.
+B. Solutions to Fairness Violation Caused by Data Sellers
+The primary method for managing sellers’ behavior centers
+on verifying the traded objects. One strategy involves water-
+marking [20]. Liu et al. [21] explore the method for electricity
+data, which helps buyers ascertain the seller’s ownership and
+provision, although it does not preclude tampering with the
+source data. Another approach, designed by Xue et al. [22] for
+fair medical data trading, uses signatures from trusted parties
+like hospitals to guarantee data authenticity and accuracy. Be-
+sides, Chenli et al. [23] outline a mechanism where the data
+product’s decryption key is divided into two components. The
+buyer possesses only one component, while a smart contract
+is implemented to govern the veriﬁcation process and subse-
+quent release of the second component to regulate the seller’s
+behavior. Lu et al. [24] link the payment received by the seller
+directly to the quality of the provided dictionary matrix, which
+is veriﬁable by the buyer through the accuracy of data recon-
+struction. Li et al.[25] incorporate validators and data sampling
+for conﬁrmation of data validity.
+There are other methods focusin g on utilizing postevent so-
+lutions, such as penalty mechanisms or reputation systems. A
+typical penalty is imposing ﬁnes on the cheating sellers. This
+is regulated by designing a seller deposit mechanism and intro-
+ducing a market manager to forcibly transfer the data seller’s
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 237
+TABLE I
+COMPARISON WITH EXISTING SOLUTIONS TO THE FAIRNESS ISSUE IN DECENTRALIZED DATA TRADING
+Approach Addressing Buyers’ Vio lation Addressing Sellers’ Violation
+Data segmentation strategies [8], [9] ✓ ×
+PRE + Smart contract solutions [10], [11] ✓ ×
+Penalty mechanism [12], [26], [27], [29] × ✓
+Reputation/Reward mechanism [14], [15] × ✓
+This work ✓✓
+deposit to the buyer in cases where the data cannot be decrypted
+accurately [12].A b l ae ta l .[26] handle ﬁnal key disputes via
+online arbitration using smart contracts, which check the key’s
+validity and penalize the cheating seller. Similarly, Lin et al.
+[27] propose OBFP scheme to address the claim on the smart
+contract when the seller provides a wrong data. Another puni-
+tive measure is to reduce the award or proﬁt of cheating sellers.
+In [28], data sellers rely on an artiﬁcial intelligence (AI) agent to
+sell their data products. Inaccurate data hampers the AI agent’s
+ability to execute properly, affec ting the seller’s potential for
+proﬁtability. Consequently, sellersare inclined to behave fairly.
+A more severe penalty is expe lling the cheating sellers from
+the trading market. Hu et al. [13] propose a method to remove
+cheating users from the trading system once their unfair behav-
+ior is identiﬁed.
+In addition to the above penalty mechanisms, the reputation
+mechanism, which assigns scores based on the seller’s behavior,
+is also used in existing works. This mechanism could publicly
+reveal the behavior of data sellers and inﬂuence the potential
+purchase decisions, thereby guiding the fair behavior of sellers.
+The data seller providing the defective or substandard products
+would obtain a low score as designed in [14]. Taking the same
+approach, Abbasi et al. employ a rating method in a blockchain-
+based industrial Internet of Things (IIOT) data trading system,
+enabling data buyers to grade sellers based on product quality
+[15]. He et al. expand the scale of participants in the reputation
+system, enabling data sellers and buyers to rate each other’s
+behavior mutually [16].
+1) PRE in Decentralized Data Sharing: The data sharing is
+an important process in a decentralized data trading system. The
+PRE has been widely adopted to achieve secure data exchange.
+In the following, we review some of the representative work.
+In most existing work, the re-encryption operations are usu-
+ally performed by a presumed trust or semitrust proxy. For
+example, Liu et al. propose a PRE-enabled electronic med-
+ical records (EMR) sharing system [30]. The data provider
+encrypts the EMRs and uploads them to the cloud, which is
+semitrusted by the participants.When a data request is initiated,
+the data provider generates a re-encryption key and delivers it
+to the cloud, which is responsible for performing re-encryption.
+Similarly, Zou et al. [31] develop a blockchain-based medical
+data-sharing system. The medical institution holding patient
+data works as a proxy to re-encrypt the data along with the
+permission of the pa tient, enabling a desi gnated institution to
+access the data content. In [32], an identity-based PRE scheme
+is proposed for IoT data sharing, in which edge devices act as
+re-encryption proxies. Likewise, Wang and Zhang[33] propose
+TABLE II
+COMPARISON WITH PRE SCHEMES FOR DECENTRALIZED DATA EXCHANGE
+Schemes Executor Rekey Validation
+[10], [30], [31], [32] Proxy ×
+[34] Smart contract ×
+This work Buyer ✓
+a secure ride-sharin g scheme for an intelli gent transportation
+scenario in which a trusted roadside unit (RSU) works as the re-
+encryption proxy. The RSU receives encrypted travel informa-
+tion from tourists and searches for a driver to provide services.
+Once the trusted RSU identiﬁes a qualiﬁed driver, it requests
+a rekey from the passenger and uses this rekey to re-encrypt
+the ciphertext, allowing the driver to decrypt it with their
+private key.
+However, while these proxies are theoretically trustworthy
+or semitrustworthy, practical implementation necessitates eval-
+uating their ability to accurat ely re-encrypt data in the decen-
+tralized environment. Several data-sharing mechanisms have
+taken these challenges into account. In [34], blockchain is used
+to address the problem of trusted or semitrusted proxy. It re-
+places the re-encryption proxy with a smart contract, which
+facilitates matching data owners and users, automatically re-
+encrypting data using a rekey provided by the data owner.
+Additionally, Kim et al. [35] employ smart contracts to deliver
+the re-encryption key so that only the authorized data requesters
+can access the re-encryption key and decrypt the encrypted data
+by themselves. While these proxy-free PRE solutions affect
+decentralized data sharing, they cannot check the correctness
+of re-encryption keys.
+2) Comparison: In summary, we compare the work of this
+article with existing solutions to behavior fairness issues in
+Table I and with representative PRE schemes for decentralized
+data sharing in Table II. Our work effectively addresses vio-
+lations by both buyers and sellers. Meanwhile, traditional PRE
+approaches rely on a proxy, simplifying the delegatee’s task but
+introducing signiﬁcant trust assumptions regarding the proxy’s
+correct execution of the re-encryption. Replacing the proxy with
+a smart contract enhances transparency and removes reliance on
+a speciﬁc third party, but executing complex cryptographic op-
+erations like re-encryption on-chain typically incurs prohibitive
+gas costs. Our work delegates the re-encryption task to the
+authorized data requestor (i.e., the buyer in a trading context).
+While this eliminates the need for a trusted re-encrypting third
+party and avoids expensive on-chain computation, it faces the
+challenge of ensuring the received re-encryption key is valid. By
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+238 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+Fig. 1. Flow of proxy re-encryption.
+introducing a validation mechanism for the re-encryption key,
+the combination of smart contracts and the proposed VPRE ad-
+dresses this challenge, thereby preventing unfairness potentially
+caused by either buyers or sellers.
+III. P
+RELIMINARIES
+This section presents the underlying theory and technologies
+for this work.
+A. Proxy Re-Encryption
+Proxy re-encryption (PRE) was ﬁrst proposed by Blaze,
+Bleumer, and Strauss in [36]. It allows a proxy to transform a
+ciphertext encrypted under one user’s public key into one that
+can be decrypted by another user’s private key.
+In the context of data sharing or data trading, a PRE scheme
+involves three types of entities as follows.
+1) Delegator is the data owner who owns data and a pair of
+public and private keys. The data is encrypted using the
+public key and stored in the server or proxy. The delega-
+tor also generates re-encryption keys for the authorized
+delegatee.
+2) Proxy is a trusted third party that stores the ciphertext of
+the delegator’s data. It is also responsible for transforming
+the delegator’s ciphertext into the delegatee’s ciphertext
+using the re-encryption key.
+3) Delegatee is the data receiver authorized by the data
+owner. It receives the transformed ciphertext of the dele-
+gator’s data and then uses its private key to recover it.
+PRE has a variety of schemes. The veriﬁable PRE scheme
+proposed in this article is based on a hybrid PRE scheme that
+integrates a symmetric encryption [17]. This scheme is illus-
+trated in Fig. 1 and reviewed as follows.
+1) The delegator A and delegatee B execute the key gen-
+eration algorithm (PK,SK )←KeyGen(1
+k) to output
+their public and private key pairs (PKA,SKA) and
+(PKB,SKB), respectively. Speciﬁcally, SKA,SKB ∈
+Zp and PKA =gSKA,PK B =gSKB . Zp is a set of in-
+tegers modulo a large primep, including all integers from
+0t o p−1. g is a generator of an elliptic curve group G.
+2) To encrypt a message M, the delegatorA executes the en-
+cryption algorithm (C,capsule)←E (PKA,M ), where
+E is an encryption function. The process involves several
+steps described as follows. First,A generates two random
+private keys e,v
+R
+←−Zp and computes the correspond-
+ing public keys E =ge,V =gv. A veriﬁcation value s
+is then derived as s=v +e·H1(E∥V), using a hash
+function H1 :{0,1}∗→{0,1}256. Subsequently, a sym-
+metric key K is computed via a key derivation function
+KDF , speciﬁcallyK =KDF((PKA)e+v).T h i sk e yK
+is used to encrypt the message M into the ciphertext
+C =E(M,K ). Finally, A outputs the ciphertext C and
+the capsule capsule=(E,V,s ) for submission to the
+proxy.
+3) To generate a re-encryption key RKA→B for
+the delegatee B, A executes the re-encryption
+key generation algorithm (RKA→B,XA)←
+ReKeyGen(SKA,PK B). This involves A ﬁrst
+generating a random private key xA
+R
+←−Zp and
+its corresponding public key XA =gxA .T h er e -
+encryption key RKA→B is then computed as
+RKA→B =SKA ·d−1, where the value d is
+derived from a hash function H2 :{0,1}∗→G
+as d=H2(XA∥PKB∥PKxA
+B ). (RKA→B,XA) is
+subsequently submitted to the proxy.
+4) To transform capsule of A into capsule′ of B,t h e
+proxy executes the re-encryption algorithm capsule′ ←
+ReEnc(RKA→B,capsule). Speciﬁcally, the proxy be-
+gins by verifying the correctness of the input capsule
+by checking ifgs =V ·EH1(E∥V). Upon successful val-
+idation of capsule, the proxy proceeds to compute the
+components of the new capsule capsule′ =(E′,V ′,s)
+for B as E′ =ERKA→ B and V′ =VRKA→ B .A f t e rt h e
+transformation process, the proxy sends (XA,capsule′)
+to B.
+5) To recover M from C, the delegatee B ﬁrst executes the
+K ←ReCreatKey(SKB,XA,capsule′) algorithm to
+recover the symmetric key K. Speciﬁcally, B computes
+the value d=H2(XA∥PKB∥XSKB
+A ) and then derives
+the symmetric key K =KDF(E′ ·V′)d. Once the key
+K is recovered, B uses the recovered key K to decrypt
+C via the decryption algorithm D, obtaining the original
+message M =D(C,K ).
+B. Smart Contract
+Smart contracts are programs deployed on the ethereum
+blockchain. They are executed by blockchain nodes to auto-
+matically achieve agreements among transaction participants
+according to predeﬁned rules and conditions. They can incor-
+porate intricate sets of operational rules and conditions, allow-
+ing their customization to address diverse requirements. For
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 239
+Fig. 2. Architecture of our data trading system. Each icon includes a color-coded lock in the bottom-ri ght corner, indicating the ﬁle is encrypted by t he
+corresponding color of the key.
+instance, it could establish payment stipulations and automat-
+ically encrypt data. Once the predeﬁned criteria are satisﬁed,
+these contracts autonomously carry out the designated actions.
+This automation not only reduces the overhead associated with
+manual operations but also elimi nates the possibility of fraud-
+ulent activities during the execution phase.
+IV . P
+ROBLEM STATEMENT
+This section formally outlines the environment, potential
+threats, and core objectives for a decentralized data trading sys-
+tem, establishing the context and requirements for our proposed
+solution. As data trading becomes a fundamental category of
+digital commerce, the shift towards decentralized platforms em-
+powers users with greater control over their data assets and en-
+ables direct peer-to-peer transactions. However, this paradigm
+shift simultaneously introduces signiﬁcant challenges, particu-
+larly concerning the assurance of fair behavior between inter-
+acting parties.
+A. System Model
+Fig. 2 presents an overview of the proposed data trading
+system and the main workﬂow for achieving behavior fairness.
+As shown in the ﬁgure, the data trading system involves ﬁve
+types of entity:
+1) Data seller ( DS): An entity that owns data and intends
+to monetize it by selling its content or access rights. It
+possesses a pair of public–private keys. Besides, it gen-
+erates a symmetric key for encrypting data and calculates
+a re-encryption key for selling data.
+2) Data buyer (DB): An entity that intends to buy data from
+a data seller. It possesses a pair of public–private keys. It
+calculates a veriﬁcation key to verify the correctness of
+the re-encryption key provided by the seller during the
+trading process.
+3) Data evaluator (DE): An entity potentially responsible
+for assessing the quality, legality, or accuracy of data
+products as well as the data description before they are
+listed for trading.
+1 It has a pair of public–private keys.
+4) Data trading chain (DTC ): A blockchain specialized for
+data trading. It maintains trading information in the form
+of transactions and realizes trading-related functions via
+smart contracts.
+5) Data outsourcing storage ( DOS): An off-chain storage
+system (e.g., cloud storage, IPFS) responsible for storing
+and retrieving data products. Normally, data stored in
+DOS are ciphertext, which cannot be leaked without the
+decryption key.
+1Although involving the DE introduces a trusted entity for data admission,
+it is a necessary trade-off for ensuring data quality and legality prior to trading
+(similar to assessments for physical goods). This entity is strictly limited to
+pretrade validation and does not involve i ntermediating the core peer-to-peer
+trading execution.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+240 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+B. Threat Model
+The absence of a central trusted regulator in decentralized en-
+vironments makes the system vulnerable to dishonest behaviors
+from participants. While users gain control of their ownership
+of anything in the decentralized environment, they also bear the
+consequences of potential fraud. It could be considered as the
+following threats, acknowledging that adversaries may act out
+of rational self-interest.
+1) Dishonest data seller : A malicious DS may attempt to
+receive payment from theDB without providing the cor-
+rect means to access the promis ed data. A critical attack
+vector, particularly in systems using proxy re-encryption,
+involves the seller providing an incorrect, or incomplete
+re-encryption key (rk). Such an action would prevent
+the buyer from transforming the ciphertext and ultimately
+decrypting the data, even after payment has been made.
+Furthermore, DS might intentionally or unintentionally
+submit incorrect cryptographic information earlier in the
+protocol, such as an invalid commitment.
+2) Dishonest data buyer: A maliciousDB might attempt to
+obtain access to the data product (e.g., by receiving the re-
+encrypted ciphertext or the ﬁnal decryption key without
+making the correct or full payment to the DS.
+Adversary capabilities are assumed as follows:
+1) Fully control their own key pairs and computations.
+2) Read all public information on the DTC and potentially
+from the DOS.
+3) Communicate with other parties and interact with the
+smart contracts.
+4) Deviate arbitrarily from the prescribed protocol steps,
+including sending incorrect information.
+Our threat model operates under the following security
+assumptions:
+1) The underlying blockchain (DTC) is secure against tam-
+pering and ensures the correct execution of deployed
+smart contracts.
+2) The cryptographic primitives employed are computation-
+ally secure.
+3) All participants are responsible for securely managing
+their own private keys.
+4) The DOS is assumed to ensure data availability, but it is
+not trusted with plaintext data or decryption keys; data
+conﬁdentiality relies on encryption.
+C. Design Goals
+To address the challenges inherent in the described system
+and threat model, our proposed VPRE scheme is designed to
+achieve the following critical objectives:
+1) Fairness: The system must guarantee behavior fairness by
+ensuring an atomic-like exchange property. Speciﬁcally,
+a transaction should be completed (i.e., the DB obtains
+the correct, us able decryption capability via a valid re-
+encryption key, and theDS receives the payment) if and
+only if both parties act honestly according to the protocol.
+The system must prevent ﬁnancial loss for the DB if the
+DS provides an invalid key, and prevent data as well
+as key leakage to the DB if payment is not correctly
+made. Ultimately, unfair trans actions involving fairness
+violations should be effectively terminated, preventing
+loss for the honest party.
+2) Security: A core technical requirement is to introduce and
+enforce the veriﬁability of the re-encryption key gener-
+ated by the DS. The system must provide a mechanism
+for the smart contract (or the DB indirectly through the
+contract) to check the correctness and validity of the rk
+before theDB’s payment is irrevocably transferred to the
+DS. This veriﬁability is cruci al for mitigating cheating.
+3) Efﬁciency: The proposed protocols must be computa-
+tionally and economically feasible. Off-chain crypto-
+graphic operations should have acceptable performance,
+and on-chain operations should incur reasonable transac-
+tion costs (Gas fees) to ensure practical usability.
+V. SYSTEM DESIGN
+This section presents the structure, working ﬂow, and algo-
+rithm design of the VPRE scheme. Algorithms and notations
+used in the system design are explained in Tables III and IV.
+A. System Overview
+Fig. 2 presents an overview of the proposed data trading
+system and the main workﬂow for achieving behavior fairness.
+Meanwhile, the overall system workﬂow is illustrated in Fig. 3.
+It can be divided into three phases as follows.
+1) System initialization which initializes system parameters
+and public–private key pairs for DS, DB, and DE.
+2) Phase I system admission which involves the evaluation,
+encryption, and out-sourced storing procedures for data.
+3) Phase II trading which involves the setup of data price
+and status, the payment process, and the delivery of data.
+The remaining part of this section will introduce the three
+phases in detail.
+B. System Initialization
+When a party, such as a new user (either a data seller or data
+buyer) or a data evaluator, joins the system, a pair of public–
+private keys will be generated for them. Let (Z
+p,G,g ) be the
+system parameter shared to all participants. Speciﬁcally, a party
+will generate its public–private key pairs as follows:
+SK
+R
+←−Zp (1)
+PK =gSK. (2)
+The private key SK is kept secretly by the party, and
+the public key PK is published in the system. Authentic-
+ity of the public key can be realized via adopting methods
+such as PKI [37], [38], [39], [40] and ID-based solutions
+[41], [42], [43], [44].
+C. Phase I: System Admission
+In this phase, the data seller DS, who intends to sell data D,
+ﬁrst submits the data to the data evaluator DE for evaluation.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 241
+TABLE III
+ALGORITHMS IN SYSTEM DESIGN
+Algorithm Description
+sEnc(M,N ) Use the AES-GCM algorithm t o symmetrically encrypt data M with the encryption key N
+sDec(M,N ) Use the AES-GCM algorithm t o symmetrically decrypt data M with the decryption key N
+aEnc(M,PK i) Use the public key of the entity i to asymmetrically encrypt data M
+aDec(M,SK i) Use the private key of the entity i to asymmetrically decrypt data M
+rEnc(C,rk) Use re-encryption key rk to re-encrypt the ciphertext C
+TABLE IV
+NOTATIONS IN SYSTEM DESIGN
+Notation Description
+DS Data seller in the data trading system
+DB Data buyer in the data trading system
+DE Data evaluator
+DTC Blockchain for trading data
+DOS Cloud storage system
+DAddr Address of data stored in DOS
+DD Data product description
+D Original plain-text data product for sale
+Cf Ciphertext of the original data D
+fkey Key of the ciphertext Cf
+Cfk Ciphertext of fkey , obtained by encrypting fkey using the public key of DE
+Ckey Ciphertext of fkey , obtained by encrypting fkey using the public key of DS
+SKx,PK x Key pairs of the entity x
+EthAddrx Blockchain address of the entity x
+UID Unique identiﬁed number for the data product
+rk Re-encryption key
+vk Veriﬁcation key for assessi ng the correctness of rk
+cmit The commitment origin ates from the computation of rk
+Then, the evaluated dataD will be stored in the data outsourcing
+storage DOS, and related information will be recorded in the
+data trading chain DTC . Finally, theDS can set up a price for
+D and initiate the trading stage. The detailed steps are explained
+as follows.
+1) DS submits D to DE for evaluation.
+a) DS generates a random key fkey and uses it to en-
+crypt data D through symmetric encryption scheme:
+Cf ←sEnc(D,fkey ) (3)
+Then, DS uploads Cf to DOS.
+b) DS encrypts the symmetric keyfkey under the pub-
+lic key of DE using asymmetric encryption scheme:
+Cfk ←aEnc(fkey,PK DE) (4)
+Then DS submits its address EthAddrDS , PKDS ,
+Cfk , and a description of the data product DD to
+the blockchain via Authentication smart contract
+(Algorithm 1). Successful execution of this smart con-
+tract will trigger a blockchain event to notify theDE
+to evaluate the data (Step 2).
+2) DE evaluates D,s t o r e si tt oDOS and records DD to
+DTC .
+a) DE retrieves the Cfk from the DTC .
+b) DE decrypts Cfk using its private key SKDE to
+obtain fkey :
+fkey ←aDec(Cfk,SKDE) (5)
+c) DE retrieves the Cf from the DOS.
+d) DE decrypts Cf using fkey to obtain the original
+data D:
+D ←sDec(Cf,fkey ) (6)
+Then, DE evaluates the quality of the D along with
+the accuracy and consistency of its DD stored on
+DTC .
+e) Once the data passes these evaluations, DE encrypts
+fkey under the DS’s public key PKDS .
+Ckey ←aEnc(fkey,PK DS) (7)
+f) Finally, DE submits EthAddrDS , Ckey , DD and
+the address of the encrypted ﬁle DAddr and DTC
+by authenticateData() function of Authentication
+smart contract (Algorithm 1). Complete execution of
+the smart contract will create a unique identiﬁed num-
+ber UID to the data, indicating this data is granted
+permission to enter the data trading system.
+3) DS sets a price for D, which indicates that the data is
+available for purchase. Speciﬁcally,DS submits theUID
+and the price for the qualiﬁed data to the blockchain
+through the listData() function of DataList smart con-
+tract (Algorithm 2). The smart contract examines the
+data product availability by checking the cor rectness of
+UID , ownership, and listing status. If all requirements
+are satisﬁed, the UID , data price, list timestamp, and
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+242 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+Fig. 3. Sequence diagram for the system.
+EthAddrDS will be recorded on the DTC . The listing
+status of this data has been changed to true, implying that
+the data is permitted to be tr aded in the trading system.
+D. Phase II: Data Trading
+In this phase, potential buyers can review all the data descrip-
+tions and prices for all the data in the data trading system. Once
+a DB decides to buy a data product, the outstanding balance
+in the DTC is ﬁrst paid. The DS who wants to receive the
+money from DTC must provide a correct re-encryption key
+for DB. A VPRE scheme is introduced to ensure that the DS
+cannot receive the money unless a correct re-encryption key is
+provided. The whole process is explained as follows:
+1) DB pays forD. Speciﬁcally,DB deposits the amount of
+money corresponding to the desired data product denoted
+by UID via the deposit() function of the FundFlow
+smart contract (Algorithm 3). The deposit() function
+checks whether the status of the data is listed for sale and
+whether the amount matches the price. It also necessitates
+that the data product is not presently subject to a trading
+lock period. If the selected data is during a trading lock
+period, it indicates that the data product is currently in-
+volved in a transaction initiated by another DB.
+Following a successful deposit by DB, both DS and
+DB are required to undertake a series of actions to fa-
+cilitate the progression of data trading. The data trading
+system stipulates a time window commencing from the
+deposit timestamp, during which DB is prohibited from
+withdrawing the deposited money.
+2) To obtain the payment, DS generates a re-encryption key
+rk for DB and a commitment cmit.
+a) DS generates rk as follows:
+i) Generate a pair of ephemeral public and private
+keys (PK
+e,SKe):
+SKe
+R
+←−Zp (8)
+PKe =gSKe. (9)
+ii) Compute a hash digest d:
+d←H2(PKe∥PKDB∥PKDB
+SKe). (10)
+iii) Compute rk:
+rk =SKDS ·d−1. (11)
+b) DS computes cmit for rk as follows:
+cmit←H3(grk). (12)
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 243
+Algorithm 1: Authentication Smart Contract.
+Algorithm 2: Data List Smart Contract.
+c) DS submits cmit and PKe to the DTC via the sub-
+mitCmit() function ofTrading smart contract (Algo-
+rithm 4). Note that till this stage, no information about
+rk has been revealed to the DTC and DB.
+3) DTC veriﬁes the rk.
+a) DB generates the veriﬁcation key vk as follows:
+vd ←H2(PKe∥PKDB∥PKe
+SKDB ) (13)
+vk =PKDS
+vd−1
+. (14)
+Algorithm 3: Fund Flow Smart Contract.
+b) DB submits vk along with UID to DTC via sub-
+mitVK() function of Trading smart contract (Algo-
+rithm 4).
+c) DTC validates cmit using the vk. Speciﬁcally, it
+checks if the following condition is met:
+cmit=H3(vk) (15)
+This check veriﬁes ifcmit is a potentially valid com-
+mitment corresponding to vk. If the condition holds,
+the trading procedure proceeds. Otherwise, the trad-
+ing fails and terminates.
+d) DS submits rk to DTC . Speciﬁcally, the rk, UID
+and EthAddrDb are uploaded to the DTC via
+the settlement() function of Trading smart contract
+(Algorithm 4).
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+244 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+Algorithm 4: Trading Smart Contract.
+e) DTC authenticates rk via checking if the following
+condition is met:
+cmit=H3(grk) (16)
+This check veriﬁes if rk correctly corresponds to
+cmit provided earlier by the DS. If the condition
+holds, rk is considered valid, allowing the trading
+process to proceed. Otherwise, rk is deemed invalid,
+and the process halts before settlement.
+4) Completion of the trading.
+a) Settlement. Once rk is validated as authentic in Step
+3.d, rk will be displayed on DTC , and the de-
+posited fund will be transferred to DS (Line 32 of
+Algorithm 4).
+b) Re-encryption and decryption of the Ckey . In this step,
+DB acquire the fkey as follows:
+i) Re-encrypt Ckey using rk to transfer it into the
+ciphertext of fkey under SKDB :
+C′
+key ←rEnc(Ckey,rk). (17)
+ii) Decrypt C′
+key to obtain fkey :
+fkey ←aDec(C′
+key,SKDB). (18)
+c) DB accesses the Cf from DOS.
+d) DB obtains D by decrpyting Cf under fkey
+D ←sDec(Cf,fkey ). (19)
+5) Withdrawal
+If the veriﬁcation result fails in Step 3.c or Step 3.e, which
+means DS fails to submit the correct cmit or rk within
+the stipulated trading time window, DB retains the right
+to reclaim the deposited funds.DB could submitUID to
+trigger the withdrawal() function in theFundFlow smart
+contract (Algorithm 3) when the time has exceeded the
+stipulated trading time window. The FundFlow smart
+contract checks DB’s identity as well as the sales sta-
+tus of UID , and then returns the deposited fund to the
+DB once all the requirements are passed (Line 23 of
+Algorithm 3).
+VI. I MPLEMENTATION AND EXPERIMENTS
+A. Setup
+We have realized a decentralized fair data trading system
+prototype using go and solidity programming languages. The
+implementation speciﬁcation and experiment environment are
+introduced in Table V.
+B. Test Scenarios
+In this section, ﬁve scenarios that are prone to violating
+behavior fairness are taken into consideration. In each scenario,
+we deﬁne a pair of test cases, making a total of 10 test cases. In
+each pair, one case conforms to behavioral fairness, whereas the
+other violates it. All test cases (denoted as TC ) are described
+in Table VI.
+1) Test Scenario for Deposit Sufﬁciency: In this scenario,
+the violation of fairness is derived from the DB depositing the
+money into the smart contract. TheTC
+1−1 tests the fair practice
+that the DB selects desired data and deposits sufﬁcient money,
+while TC1−2 tests the insufﬁcient money paid by DB.
+2) Test Scenario for Data Accuracy in Listings: In this
+scenario, the fairness is violated by DS listing data via UID .
+TC2−1 tests that the DS correctly lists the data to the smart
+contract. TC2−2 tests the unfair behavior when DS submits a
+UID corresponding to data outsideDS’s ownership or submits
+a nonexistent data product’s UID .
+3) Test Scenario for cmit Submission: In this scenario,
+the DS is required to compute and submit cmit to the smart
+contract. Violation of fairness results from the DS uploading
+a wrong cmit. In particular, TC3−1 tests that the DS fairly
+submits a correct cmit, while TC3−2 tests that DS provides
+an incorrect cmit.
+4) Test Scenario for vk Submission: In this scenario, the
+DB should compute vk off-chain and upload it pointing to the
+data. The unfair practice is that theDB designates an improper
+data product or provides an erroneous vk. TC4−1 tests that the
+DB submits the correct vk, while TC4−2 tests the incorrect
+one.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 245
+TABLE V
+EXPERIMENTAL ENVIRONMENT
+Item Implementation Details
+Programming Language Go, Solidity
+Solidity Library Ownable from Open zeppelin, BigNumbers, EllipticCurve
+aEnc and aDec ECC on curve secp256r1
+sEnc and sDec AES-GCM
+H2 HashToCurve() function in goRecrypt library
+H3 Keccack-256
+Blockchain Network Remix VM
+Hardware MacBook Pro (CPU: Apple M1 Pro, RAM: 16GB, OS: macOS Monterey 12.5)
+TABLE VI
+TEST CASES OF BEHAVIOR FAIRNESS VIOLATIONS
+Index Description Fairness Violation Execution Entity
+TC1−1 Deposit sufﬁcient money No DB
+TC1−2 Deposit insufﬁcient money Yes DB
+TC2−1 List correct data product with price No DS
+TC2−2 List non-owned or unqualiﬁed data Yes DS
+TC3−1 Submit correct cmit No DS
+TC3−2 Submit incorrect cmit Yes DS
+TC4−1 Submit correct vk No DB
+TC4−2 Submit incorrect vk Yes DB
+TC5−1 Submit correct rk No DS
+TC5−2 Submit incorrect rk Yes DS
+5) Test Scenario for Settlement: In this scenario, DS is
+required to submit rk to complete the data trading process.
+The practice violating behavior fairness is that theDS provides
+an incorrect rk. TC5−1 tests that the DS behaves fairly to
+submit correct rk, while the TC5−2 tests that the DS inputs
+an incorrect one.
+C. Results and Analysis
+In the 10 test cases, 5 cases with fairness violations were ter-
+minated, and the trading was canceled. Another 5 cases without
+any fairness violation led to successful trading. This proves that
+the proposed solution can effectively address the behavior fair-
+ness issue by identifying violations and terminating the relevant
+trading. Besides, we test the gas consumption for each case and
+summarize the results in Fig. 4.
+According to Fig. 4, we can draw the following conclusions.
+1) Gas consumption data across all test cases reveals that
+the VPRE mechanism is cost-effective in handling fair-
+ness violations. The cost incurred when detecting and
+terminating an unfair transaction is consistently found
+to be no more than that of completing the correspond-
+ing honest transaction. Without the VPRE scheme, such
+unfair actions could proceed undetected, consuming gas
+comparable to the fair s cenario but ultimately lead-
+ing to trading failure. For the majority of pairs of
+test cases, the gas cost of detecting and halting un-
+fair transactions is less than the potentially high cost
+of allowing an unchecked invalid transaction to execute
+fully.
+2) For TC
+3−1 and TC3−2, the gas fees for both cases are
+close. The reason is that our system allows any cmit to
+Fig. 4. Gas consumption in different fairness behavior test cases.
+be recorded on the blockchain at this step. But a wrong
+cmit will not pass the veriﬁcation in the further steps
+and the trading will not be completed. Not only can DS
+not receive the payment, but DS also has to bear the gas
+losses.
+3) Compared to all other test pairs, TC5−1 andTC5−2 have
+the highest gas costs. This is caused by the complexity
+of the computation of verifying the correctness of rk.
+Given that rk serves as the critical element in obtaining
+the data product, safeguar ding the conﬁdentiality of the
+correct rk till the ﬁnality of the trading is essential to
+secure DS’s beneﬁts. After the veriﬁcation of the rk,
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+246 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+Fig. 5. Gas consumption comparison between VPRE and OBFP.
+the rk from DS and the money from DB are settled
+in an atomic method, ensur ing that no entity’s beneﬁts
+are compromised. Therefore, although this step requires
+more gas cost, it is justiﬁed and worthwhile.
+These experimental ﬁndings validate the system’s abil-
+ity to meet the Fairness goal outlined in Section IV-C by
+effectively terminating unfair transactions and preventing
+loss for the honest party. Furthermore, they demonstrate
+progress towards the Efﬁciency goal by potentially avoid-
+ing signiﬁcant gas waste compared to unchecked unfair
+processes.
+VII. S
+YSTEM EVALUATION
+This section ﬁrst analyzes the veriﬁability of the re-
+encryption key in the VPRE scheme, then evaluates the security
+of smart contracts. Finally, we evaluate the whole system’s
+performance, indicating that the system generally meets the
+Efﬁciency design goal deﬁned in Section IV.
+A. Veriﬁability of Re-Encryption Key
+A signiﬁcant feature of the proposed VPRE is the public
+veriﬁability of the re-encryptio n key. Below, we analyze how
+this is guaranteed in the scheme.
+First, in Step 2 of the Data Trading phase, DS submits
+a commitment cmit=H
+3(grk) for the re-encryption key rk,
+where
+rk =SKDS ·d−1 (20)
+and
+d=H2(PKe∥PKDB∥PKDB
+SKe). (21)
+Then, in Step 3-a to 3-c, to verify the correctness of rk, DB
+generates a veriﬁcation key vk using his private key SKDB as
+follows:
+vd =H2(PKe∥PKDB∥PKe
+SKDB ) (22)
+TABLE VII
+SECURITY ANALYSIS RESULTS VIA MYTHX
+Smart Contract Severity
+Low Medium High
+Authentication Contract 0 0 0
+Data List Contract 0 0 0
+Fund Flow Contract 0 0 0
+Trading Contract 0 0 0
+and
+vk =PKDS
+vd−1
+. (23)
+Since
+PKDB
+SKe =PKe
+SKDB (24)
+which means the H2 preimages of d and vd are identical, we
+have
+vd =d (25)
+and
+vk =PKDS
+vd−1
+(26)
+=gSKDS·d−1
+(27)
+=grk. (28)
+Next, the re-encryption key rk submitted by DS in Step 3-d
+will be veriﬁed via the smart contract to see if grk is identical
+to the commitment of rk submitted in Step 2-c. The trading
+proceeds to a succe ssful completion if and only if the key
+revealed in Step 3-d is the correct one to transform the ciphertext
+of DS to that of DB.
+This demonstrates that the ver iﬁability of the re-encryption
+key directly fulﬁlls theSecurity design goal of re-encryption key
+veriﬁability as stated in Section IV-C. Moreover, by ensuring
+that only valid keys are accepted before payment transfer, this
+mechanism is fundamental to achieving the overarching Fair-
+ness goal, effectively mitigating cheating attempts involving
+incorrect keys.
+B. Smart Contract Security Evaluation
+MythX is introduced to analyze the security of smart con-
+tracts. As showcased on its ofﬁcial website, it categorizes vul-
+nerabilities into six distinct t ypes and offers 46 specialized
+detectors for a comprehensive security evaluation.
+The result of the security analysis of our proposed smart
+contracts is illustrated in Table VII. It concludes that no known
+security vulnerabilities or potential threats have been identiﬁed
+in the smart contracts for our fair-trading framework.
+C. Smart Contract Cost Evaluation
+To evaluate the cost and performance of the proposed system,
+we test the gas consumption of deploying smart contracts and
+on-chain operations. The total gas consumption of deploying
+four main smart contracts is 14 771 394 Gwei on a gas price
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 247
+Fig. 6. Gas consumption analysis across different buyers.
+Fig. 7. Time consumption of off-ch ain operations for different entities.
+of 2 Gwei/gas. With respect to the gas fees for these on-chain
+operations during the trading phase, the principle is that the en-
+tity calling the respective smartcontract function bears the cost.
+Consequently, for the core VPRE veriﬁcation steps, DS pays
+the fees for executing the submitCmit and settlement functions,
+while theDB pays the fee for executing thesubmitVK function.
+To thoroughly analyze the gas cost consumption of the VPRE
+trading scheme, Fig. 5 shows a comparison between the VPRE
+and OBFP [27] trading ﬂows for the cost of smart contract oper-
+ations performed by each entity. VPRE’s initial deployment is
+higher than OBFP, due to the multiple elliptic curve calculations
+present in the contract. However, once the contract is deployed,
+it will be continuously used by the participants, making it an ac-
+ceptable long-term ﬁxed cost. The total consumption of entities
+participating in the trading system is less than the OBFP, and
+Fig. 8. Performance comparison: PRE vs VPRE.
+as the number of transactions increases, this advantage contin-
+ues to expand. Additionally, VPRE implements the ability to
+verify key correctness during the transaction process, allowing
+transactions to terminate immediately when veriﬁcation fails.
+In contrast, OBFP requires an appeal process for incorrect data
+products, incurring additional costs for the getProof() function
+at 57 000 Gwei and submitCP() at 100 000 Gwei.
+VPRE allows the seller to s ell the data product to multiple
+buyers, which is common in real-world data trading scenarios.
+The smart contract operations executed by the DS include
+listing the data, submitting the commitment of the re-encryption
+key, and submitting the re-encryption key to settle the trading.
+In detail, DS needs to list the data product only once at a ﬁxed
+cost of 172 542 Gwei; therefore, this initial listing cost remains
+constant regardless of the number of buyers. Besides,DS must
+perform the commitment submission via submitCmit() function
+and submit rk via the settlement() function for each buyer
+individually. The gas fees are summarized in Fig. 6, which
+shows that selling a listed dat a product to b uyers increases
+linearly with the number of buyers. It can be observed that
+the settlement() function incurs signiﬁcant gas consumption,
+primarily due to the intricate elliptic curve computations within
+the smart contract. Correspondingly, each buyer only needs to
+execute deposit() at a cost of 234 536 Gwei and submitVK() at
+170 680 Gwei for each data product they wish to purchase.
+D. Time Cost Evaluation
+The off-chain operation times for DE, DS, and DB are
+tested and summarized in Fig. 7. According to the results,
+the total execution times for each entity, measured over 100
+iterations with a ﬁle size of 1 MB to obtain the average, are
+403.06 μs, 571.74 μs, and 555.29 μs, respectively.
+To evaluate the performance of core cryptographic opera-
+tions, we compared a traditional PRE scheme with our proposed
+VPRE scheme using 1 MB data blocks averaged over 100
+iterations. As shown in Fig.8, the analysis focused onKey Pairs
+Generation,aEnc(), Generation of rk , rEnc(), aDec(), and the
+VPRE-speciﬁc Generation of cmit and Generation of vk.T h e
+cumulative execution time for these core operations was 509.91
+μsfor PRE and 629.79 μs
+for VPRE. Performance on shared
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+248 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+TABLE VIII
+COMPUTATIONAL COMPLEXITY COMPARISON OF THREE TRADING SCHEMES BY ROLE AND PHASE
+Phases
+Data Seller Data Buyer Other Entity
+VPRE PRES [10] Fair2Trade [23] VPRE PRES [10] Fair2Trade [23] VPRE PRES [10] Fair2Trade [23]
+Data processing O(m) O(m) O(m) -- - O(m) --
+Veriﬁcation O(1) O(1) O(m) O(1) O(r) O(m) - O(N) -
+Delivery & Settlement O(1) O(1) O(1) O(m) O(m) O(m) O(1) O(r) -
+Fig. 9. Average encryption and decr yption times for different ﬁle sizes.
+operations remained comparable due to the common underly-
+ing elliptic curve cryptography. The VPRE scheme introduced
+Generation of cmit requiring 18.83 μsand Generation of
+vk requiring 109.75 μs, which collectively add approximately
+25.21% overhead relative to other PRE operations but are inte-
+gral to its enhanced security framework.
+Additionally, for encryption and decryption operations, the
+time consumption is inﬂuenced by the size of the data product.
+Therefore, we further tested the time for these operations by
+changing the size of the data. The results are presented in
+Fig. 9, which shows that larger data ﬁles incur higher symmetric
+encryption and decryption time costs.
+E. Computational Complexity Comparison
+The computational complexitie s of the three data trading
+schemes are compared as shown in Table VIII, including the
+PRES scheme in [10],t h eF a i r
+2Trade scheme in [23], and our
+proposed VPRE scheme. The complexity model is parameter-
+ized bym, the size of each original plaintext record;N, the total
+size of all stored ciphertexts associated with keywords; andr∈
+[0,N ], the size of the encrypted result set returned for a given
+query. Its total complexity is O(m) from VPRE, indicating
+that it maintains efﬁciency even when processing large datasets.
+Notably, VPRE can verify re-encryption keys with a complexity
+of O(1), a constant-time operation that further enhances com-
+putational efﬁciency. While PRES also supports veriﬁcation, it
+is limited to identifying ciphertext with keyword veriﬁcation,
+resulting in a complexity of O(r) from the buyer’s side. And a
+third party in PRES also needs to support this process, requiring
+a complexity of O(N). Meanwhile, Fair 2Trade validates the
+data content itself, its complexity is O(m). VPRE ofﬂoads this
+task to the data evaluator, improving overall efﬁciency. Thus,
+VPRE strikes a better balance between data trading fairness and
+efﬁcient trading process, especially in the veriﬁcation phase.
+VIII. C
+ONCLUSION AND FUTURE WORK
+In this work, we established a data trading ecosystem based
+on blockchain, aiming to guarantee the fair behavior of all
+participants. As a core component of the ecosystem, VPRE
+is proposed to realize the correctness and consistency of
+the re-encryption key. Leveragi ng the programmability of the
+blockchain, the data trading process can be executed through
+smart contracts without relying on a central authority, and trans-
+actions can only be completed under conditions of fair behavior.
+Experiments tested the participants’ behavior, and operations
+susceptible to cheating practices were effectively identiﬁed.
+Evaluation results of our fair data trading ecosystem proved
+that the VPRE mechanism is feasible, and the design of the
+smart contract is highly assured. The performance of gas and
+time costs is practical and demonstrates the efﬁciency of our
+ecosystem in achieving secure and fair data trading.
+While demonstrating a robust mechanism for fair data trad-
+ing, certain limitations remain. The presence of a data evaluator
+is assumed to be responsible for pretrade validation, which
+is necessary for data quality control in the current context.
+However, the speciﬁc mechanisms for governing and ensuring
+the trustworthiness of data evaluators are beyond the scope of
+this article. Similarly, the economic model is not deﬁned within
+the presented protocol, including incentive structures required
+to motivate and regulate data evaluators.
+Further work could explore several key aspects. First, de-
+signing robust incentive mechanisms and economic models for
+data trading participants is crucial for practical deployment
+and long-term sustainability. Second, exploring the integration
+of privacy-enhancing technologies during the data evaluation
+phase could potentially minimize trust assumptions placed on
+data evaluators or even eliminate their role. Finally, continued
+optimization of the protocol’s scalability and gas efﬁciency
+remains an important objective for future improvement.
+R
+EFERENCES
+[1] MarketsandMarkets, “Big data ma rket by offering, business function,
+data type, vertical and region—Global forecast to 2028,” Accessed:
+Apr. 4, 2024. [Online]. Available: https://www.marketsandmarkets.com/
+Market-Reports/big-data-market-1068.html
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+JI et al.: FAIR DATA TRADING ON BLOCKCHAIN THROUGH VERIFIABLE PROXY RE-ENCRYPTION 249
+[2] W. Dai, C. Dai, K.-K. R. Choo, C. Cui, D. Zou, and H. Jin, “SDTE:
+A secure blockchain-based data trading ecosystem,” IEEE Trans. Inf.
+Forensics Secur., vol. 15, pp. 725–737, 2020.
+[3] C. Chen, J. Wu, H. Lin, W. Chen, and Z. Zheng, “A secure and efﬁcient
+blockchain-based data trading a pproach for Internet of Vehicles,” IEEE
+Trans. Veh. Technol., vol. 68, no. 9, pp. 9110–9121, 2019.
+[4] C. Liu and Z. Li, “Comparison of centralized and peer-to-peer decentral-
+ized market designs for community markets,” IEEE Trans. Ind. Appl. ,
+vol. 58, no. 1, pp. 67–77, 2022.
+[5] Y . Li, L. Li, Y . Zhao, N. Guizani, Y . Yu, and X. Du, “Toward
+decentralized fair data tradin g based on blockchain,” IEEE Netw.,v o l .
+35, no. 1, pp. 304–310, 2021.
+[6] A. Dixit, A. Singh, Y . Rahulamathavan, and M. Rajarajan, “FAST DATA:
+A fair, secure, and trusted decen tralized IIoT data marketplace enabled
+by blockchain,” IEEE Internet Things J. , vol. 10, no. 4, pp. 2934–2944,
+2023.
+[7] C. Li, S. Liang, J. Zhang, Q. e Wang, and Y . Luo, “Blockchain-
+based data trading in edge-cl oud computing environment,” Inf. Process.
+Manage., vol. 59, no. 1, 2022, Art. no. 102786.
+[8] S. Delgado-Segura, C. Pérez-Solà, G. Navarro-Arribas, and J. Herrera-
+Joancomartí, “A fair protocol for d ata trading based on bitcoin transac-
+tions,” Future Gener. Comput. Syst. , vol. 107, pp. 832–840, 2020.
+[9] H. Hamledari and M. Fischer, “Cons truction payment automation using
+blockchain-enabled smart contracts and robotic reality capture technolo-
+gies,” Autom. Constr., vol. 132, 2021, Art. no. 103926.
+[10] X. Lu et al., “Decentralized fair IO T data trading via searchable proxy
+re-encryption,” IEEE Internet Things J. , vol. 11, no. 11, pp. 19485–
+19499, 2024.
+[11] J. Gao, H. Yu, X. Zhu, and X. Li, “Blockchain-based digital rights
+management scheme via multiauthority ciphertext-policy attribute-based
+encryption and proxy re-encryption,” IEEE Syst. J. , vol. 15, no. 4, pp.
+5233–5244, 2021.
+[12] Y . Zhao, Y . Yu, Y . Li, G. Han, and X. Du, “Machine learning based
+privacy-preserving fair data trading in big data market,” Inf. Sci. ,v o l .
+478, pp. 449–460, 2019.
+[13] D. Hu, Y . Li, L. Pan, M. Li, and S. Zh eng, “A blockchain-based trading
+system for big data,” Comput. Netw., vol. 191, 2021, Art. no. 107994.
+[14] G. Baranwal and D. P. Vidyarthi, “A fair multi-attribute combinatorial
+double auction model for resource allocation in cloud computing,” J.
+Syst. Softw., vol. 108, pp. 60–76, 2015.
+[15] M. Abbasi, J. Prieto, A. Shahrak i, and J. M. Corchado, “Industrial data
+monetization: A blockchain-based i ndustrial IoT data trading system,”
+Internet Things, vol. 24, 2023, Art. no. 100959.
+[16] Y . He, H. Zhu, C. Wang, K. Xiao, Y . Zhou, and Y . Xin, “An accountable
+data trading platform based on blockchain,” in Proc. INFOCOM or IEEE
+Conf. Comput. Commun. Workshops (INFOCOM WKSHPS) , 2019, pp.
+1–6.
+[17] Sher, “goRecrypt,” 2020, Accessed: Apr. 5, 2024. [Online]. Available:
+https://github.com/SherLzp/goRecrypt
+[18] MythX, “Mythx: Smart contract security service for ethereum,”
+mythx.io, 2024. Accessed: Ap r. 11, 2024. [Online]. Available https://
+mythx.io/
+[19] S. Bajoudah, C. Dong, and P. Missier, “Toward a decentralized, trust-less
+marketplace for brokered IoT data trading using blockchain,” in Proc.
+IEEE Int. Conf. Blockchain (Blockchain), 2019, pp. 339–346.
+[20] Z. Liu et al., “Pricing game and bl ockchain for electr icity data trading
+in low-carbon smart energy systems,” IEEE Trans. Ind. Informat. ,v o l .
+20, no. 4, pp. 6446–6456, 2024.
+[21] Z. Liu, B. Huang, Y . Li, Q. Sun, T. B. Pedersen, and D. W. Gao, “Pricing
+game and blockchain for electricity d ata trading in low-carbon smart
+energy systems,” IEEE Trans. Ind. Informat. , vol. 20, no. 4, pp. 6446–
+6456, 2024.
+[ 2 2 ] L .X u e ,J .N i ,D .L i u ,X .L i n ,a n dX. Shen, “Blockchain-based fair
+and ﬁne-grained data tradin g with privacy preservation,” IEEE Trans.
+Comput., vol. 72, no. 9, pp. 2440–2453, 2023.
+[23] C. Chenli, W. Tang, H. Lee, and T. Jung, “Fair 22trade: Digital trading
+platform ensuring exchange and distribution fairness,” IEEE Trans.
+Dependable Secure Comput. , vol. 21, no. 5, pp. 4827–4842, 2024.
+[24] Y . Lu, J. Wang, L. Liu, and H. Yang, “Get by how much you pay: A
+novel data pricing scheme for data trading,” Inf. Process. Manage.,v o l .
+61, no. 6, 2024, Art. no. 103849.
+[25] J. Li, J. Li, X. Wang, R. Qin, Y . Yuan, and F.-Y . Wang, “Multi-blockchain
+based data trading markets w ith novel pricing mechanisms,” IEEE/CAA
+J. Autom. Sinica , vol. 10, no. 12, pp. 2222–2232, 2023.
+[26] P. Abla, T. Li, D. He, H. Huang, S. Yu, and Y . Zhang, “Fair and privacy-
+preserved data trading proto col by exploitin g blockchain,” IEEE Trans.
+Inf. Forensics Secur., vol. 19, pp. 9012–9025, 2024.
+[27] C. Lin, D. He, X. Huang, and K.-K. R. Choo, “OBFP: Optimized
+blockchain-based fair payment f or outsourcing computations in cloud
+computing,” IEEE Trans. Inf. Forensics Secur., vol. 16, pp. 3241–3253,
+2021.
+[28] M. Ha, S. Kwon, Y . J. Lee, Y . Shim, and J.-W. Kim, “Where WTS meets
+WTB: A blockchain-based marketp lace for digital me to trade users’
+private data,” Pervasive Mob. Comput. , vol. 59, pp. 101078–101090,
+2019.
+[29] D. Hu, Y . Li, L. Pan, M. Li, and S. Zh eng, “A blockchain-based trading
+system for big data,” Comput. Netw., vol. 191, 2021, Art. no. 107994.
+[30] J. Liu et al., “Conditional anon ymous remote healthcare data sharing
+over blockchain,” IEEE J. Biomed. Health Inform. , vol. 27, no. 5, pp.
+2231–2242, 2023.
+[31] R. Zou, X. Lv, and J. Zhao, “SPCh ain: Blockchain-based medical data
+sharing and privacy-preserving eHealth system,” Inf. Process. Manage.,
+vol. 58, no. 4, 2021, Art. no. 102604.
+[32] K. O.-B. O. Agyekum, Q. Xia, E. B. Sifah, C. N. A. Cobblah, H. Xia,
+and J. Gao, “A proxy re-encryption a pproach to secure data sharing in
+the Internet of Things based on blockchain,” IEEE Syst. J. , vol. 16, no.
+1, pp. 1685–1696, 2022.
+[33] D. Wang and X. Zhang, “Secure ride-sharing services based on a
+consortium blockchain,” IEEE Internet Things J., vol. 8, no. 4, pp. 2976–
+2991, 2020.
+[34] Y . Zhou, Z. Cao, X. Dong, and J. Zhou, “BLDSS: A blockchain-
+based lightweight searchable d ata sharing schem e in vehicular social
+networks,” IEEE Internet Things J. , vol. 10, no. 9, pp. 7974–7992,
+2023.
+[35] T. Kim, I. Y . Jung, and Y .-C. Hu, “Automatic, location-privacy pre-
+serving dashcam video sharing us ing blockchain and deep learning,”
+Human-Centric Comput. Inf. Sci. , vol. 10, no. 1, pp. 1–23, 2020.
+[36] M. Blaze, G. Bleumer, and M. Strau ss, “Divertible protocols and atomic
+proxy cryptography,” in Proc. Adv. Cryptol. EUROCRYPT , vol. 1403,
+pp. 127–144, 1998.
+[37] R. Perlman, “An overview of PKI trust models,” IEEE Netw., vol. 13,
+no. 6, pp. 38–43, 1999.
+[38] Y . Li, Y . Yu, C. Lou, N. Guizani, and L. Wang, “Decentralized public
+key infrastructure s atop blockchain,” IEEE Netw. , vol. 34, no. 6, pp.
+133–139, 2020.
+[39] A. Rashid, A. Masood, H. Abbas, and Y . Zhang, “Blockchain-based
+public key infrastructure: A transp arent digital certiﬁ cation mechanism
+for secure communication,” IEEE Netw., vol. 35, no. 5, pp. 220–225,
+2021.
+[40] S. Khan, F. Luo, Z. Zhang, M. A. Rahim, M. Ahmad, and K. Wu, “Sur-
+vey on issues and recent advances in ve hicular public-key infrastructure
+(VPKI),” IEEE Commun. Surv. Tuts. , vol. 24, no. 3, pp. 1574–1601,
+2022.
+[41] H. Deng et al., “Identity-based en cryption transformation for ﬂexible
+sharing of encrypted data in public cloud,” IEEE Trans. Inf. Forensics
+Secur., vol. 15, pp. 3168–3180, 2020.
+[42] D. Pavithran, J. N. Al-Karaki, an d K. Shaalan, “Edge-based blockchain
+architecture for event-driven IoT us ing hierarchical identity based en-
+cryption,” Inf. Process. Manage., vol. 58, 2021, Art. no. 102528.
+[43] K. Lee, “Comments on: Secure d ata sharing in cloud computing using
+revocable-storage identity-based encryption,” IEEE Trans. Cloud Com-
+put., vol. 8, no. 4, pp. 1299–1300, Apr. 2020.
+[44] M. Kumar and S. Chand, “A secure and efﬁcient cloud-centric internet-
+of-medical-things-enabled smart h ealthcare system with public veriﬁa-
+bility,” IEEE Internet Things J. , vol. 7, no. 10, pp. 10650–10659, Oct.
+2020.
+Ziyang Ji received the M.S. degree in business
+analytics from Xi’an Jiaotong-Liverpool University,
+Suzhou, China, in 2020. He is currently working
+toward the Ph.D. degree in computer science with
+the University of Liverpool, Liverpool, U.K.
+His research interests include cryptography and
+blockchain.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 
+
+250 IEEE TRANSACTIONS ON COMPUTATIONAL SOCIAL SYSTEMS, VOL. 13, NO. 1, FEBRUARY 2026
+Jie Zhang received the Ph.D. degree computer
+science from the University of Liverpool. Liverpool,
+U.K., in 2018.
+Currently, she is an Associate Professor with
+Xi’an Jiaotong-Liverpool University, Suzhou,
+China. Her research interests include cryptography
+and cyberspace security.
+Ka Lok Man received the Dr. Eng. degree in elec-
+tronic engineering from Politecnico di Torino, Turin,
+Italy, in 1998, and the Ph.D. degree in computer
+science from Technische Universiteit Eindhoven,
+Eindhoven, The Netherlands, in 2006.
+Currently, he is a Professor with Xi’an Jiaotong-
+Liverpool University, Suzhou, China. His research
+interests include formal methods and process alge-
+bras, embedded system design and testing, AI, and
+photovoltaics.
+Steven Guan received the B.Sc. degree in mathe-
+matics from Tsinghua University, Beijing, China,
+and the M.Sc. and Ph.D. degrees in computer
+science from the University of North Carolina at
+Chapel Hill, Chapel Hill, NC, USA.
+Currently, he is a Professor with Xi’an Jiaotong-
+Liverpool University (XJTLU), Suzhou, China. He
+served as the Head of the Department position
+with XJTLU for more than four years, creating the
+department from scratch and now in shape. Before
+joining XJTLU, he was a Tenured Professor and
+Chair in intelligent systems with Brunel University, U.K. His research interests
+include machine learning, computati onal intelligence, big data analytics,
+mobile commerce, modeling, networ king, personalization, security, coding
+theory, and pseudorandom number generation.
+Nguyen Van Huynh (Member, IEEE) received the
+Ph.D. degree in electrical and computer engineering
+from the University of Technology Sydney, Sydney,
+Australia, in 2022.
+Currently, he is a Lecturer with the Department of
+Electrical Engineering and Electronics, University
+of Liverpool (UoL), Liverpool, U.K. Before joining
+UoL, he was a Postdoctoral Research Associate with
+the Department of Electrical and Electronic Engi-
+neering, Imperial College London, London, U.K.
+His research interests include mobile computing,
+5G/6G, IoT, and machine learning.
+Dr. Van Huynh is currently an Associate Editor of IEEE T
+RANSACTIONS ON
+MOBILE COMPUTING and IEEE TRANSACTIONS ON VEHICULAR TECHNOLOGY.
+Authorized licensed use limited to: University of Nevada Las Vegas. Downloaded on March 23,2026 at 17:58:38 UTC from IEEE Xplore.  Restrictions apply. 

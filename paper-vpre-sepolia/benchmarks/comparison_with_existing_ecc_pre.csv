@@ -1,0 +1,3 @@
+﻿metric,paper_vpre_sepolia,existing_ecc_pre,delta_pct
+end_to_end_gas,660876,1637573.8,-59.64
+end_to_end_latency_ms,87533.1207335306,12262.4226582,613.83
