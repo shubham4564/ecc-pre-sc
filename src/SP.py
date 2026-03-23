@@ -182,7 +182,7 @@ class SP:
             print(f"Error loading parameters: {str(e)}")
             raise
 
-    def requestCprimeFromeContract(self, rk1, rk2, rk3, proof_commitment_x, proof_commitment_y, proof_response, proof_nonce, proof_expiry):
+    def requestCprimeFromeContract(self, rk1, rk2, rk3, i, o, y, z, w, alpha, gamma):
         """Setup web3 and contract instance"""
         load_dotenv()
         PRIVATE_KEY = os.getenv('PRIVATE_KEY')
@@ -213,11 +213,13 @@ class SP:
             'rk1': rk1,
             'rk2': rk2,
             'rk3': rk3,
-            'proofCommitmentX': proof_commitment_x,
-            'proofCommitmentY': proof_commitment_y,
-            'proofResponse': proof_response,
-            'proofNonce': proof_nonce,
-            'proofExpiry': proof_expiry,
+            'i': i,
+            'o': o,
+            'y': y,
+            'z': z,
+            'w': w,
+            'alpha': alpha,
+            'gamma': gamma,
         }
         block = web3.eth.get_block('latest')
         block_gas_limit = block['gasLimit']
@@ -574,6 +576,57 @@ def ppow(base, exp, mod):
 
     return result
 
+
+def generate_arithmetic_zkp_inputs(max_attempts=100):
+    """Generate arithmetic proof inputs that satisfy verifyProof equations."""
+    for _ in range(max_attempts):
+        i = generate_large_prime(20)
+        o = generate_large_prime(20)
+        bytesize = 20
+        j = get_rand(bytesize)
+        v = get_rand(bytesize)
+        w = generate_large_prime(10)
+
+        y, z, A, B = computeCommitment(i, o, j, v, w)
+        gamma = computeChallenge(i, y, o, z, A, B, w)
+        alpha = computeProof(j, gamma, v, w)
+
+        if alpha < 0:
+            val1 = ppow(i, -alpha, w)
+            val2 = ppow(o, -alpha, w)
+            val1 = extended_euclid(val1, w)
+            val2 = extended_euclid(val2, w)
+        else:
+            val1 = ppow(i, alpha, w)
+            val2 = ppow(o, alpha, w)
+
+        if gamma < 0:
+            val3 = ppow(y, -gamma, w)
+            val4 = ppow(z, -gamma, w)
+            val3 = extended_euclid(val3, w)
+            val4 = extended_euclid(val4, w)
+        else:
+            val3 = ppow(y, gamma, w)
+            val4 = ppow(z, gamma, w)
+
+        A_ = (val1 * val3) % w
+        B_ = (val2 * val4) % w
+        hash2 = keccak256_encode_packed(y, z, A_, B_)
+        gamma_ = int.from_bytes(hash2, byteorder='big') % w
+
+        if gamma == gamma_:
+            return {
+                'i': int(i),
+                'o': int(o),
+                'y': int(y),
+                'z': int(z),
+                'w': int(w),
+                'alpha': int(alpha),
+                'gamma': int(gamma),
+            }
+
+    raise RuntimeError("Failed to generate arithmetic ZKP inputs that verify")
+
 def keccak256_encode_packed(*args):
     # Concatenate the arguments as bytes with fixed size
     packed = b''.join(
@@ -597,8 +650,7 @@ def main():
     if not wallet_address:
         raise ValueError('Missing WALLET_ADDRESS in .env')
 
-    contract_address = get_contract_info()
-    proof = sp.generate_reencryption_proof(contract_address, wallet_address, rk11, rk22, rk33)
+    proof = generate_arithmetic_zkp_inputs()
 
     # print("RK1:", rk11)
     # print("RK2:", rk22)    
@@ -643,11 +695,13 @@ def main():
         rk11,
         rk22,
         rk33,
-        proof['proofCommitmentX'],
-        proof['proofCommitmentY'],
-        proof['proofResponse'],
-        proof['proofNonce'],
-        proof['proofExpiry'],
+        proof['i'],
+        proof['o'],
+        proof['y'],
+        proof['z'],
+        proof['w'],
+        proof['alpha'],
+        proof['gamma'],
     )
 
     print("C1':", c1p)

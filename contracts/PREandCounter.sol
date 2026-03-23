@@ -58,7 +58,7 @@ contract PRE
         c4X = _c4X;
         c4Y = _c4Y;
         c5TimesP = _c5TimesP;
-        hash = uint256(keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))) % PRIME_FIELD_MODULUS ;
+        hash = uint256(keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))) % CURVE_ORDER;
         serviceProviderAdmin = _serviceProviderAdmin;
         countingEnabled = _countingEnabled;
         countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
@@ -160,95 +160,24 @@ contract PRE
         uint rk1;
         uint rk2;
         uint rk3;
-        uint proofCommitmentX;
-        uint proofCommitmentY;
-        uint proofResponse;
-        uint proofNonce;
-        uint proofExpiry;
-    }
-
-    function computeProofChallenge(
-        uint proofPublicKeyX,
-        uint proofPublicKeyY,
-        ReEncryptInputs memory params
-    ) internal view returns (uint)
-    {
-        return uint256(
-            keccak256(
-                abi.encodePacked(
-                    address(this),
-                    msg.sender,
-                    params.rk1,
-                    params.rk2,
-                    params.rk3,
-                    params.proofCommitmentX,
-                    params.proofCommitmentY,
-                    proofPublicKeyX,
-                    proofPublicKeyY,
-                    params.proofNonce,
-                    params.proofExpiry
-                )
-            )
-        ) % CURVE_ORDER;
-    }
-
-    function verifyZKProof(
-        uint proofPublicKeyX,
-        uint proofPublicKeyY,
-        ReEncryptInputs memory params
-    ) internal view returns (bool)
-    {
-        require(proofPublicKeyX != 0 && proofPublicKeyY != 0, "Missing proof key");
-        require(params.proofCommitmentX != 0 && params.proofCommitmentY != 0, "Invalid commitment");
-        require(
-            EllipticCurve.isOnCurve(proofPublicKeyX, proofPublicKeyY, 0, 7, PRIME_FIELD_MODULUS),
-            "Proof key not on curve"
-        );
-        require(
-            EllipticCurve.isOnCurve(params.proofCommitmentX, params.proofCommitmentY, 0, 7, PRIME_FIELD_MODULUS),
-            "Commitment not on curve"
-        );
-
-        uint challenge = computeProofChallenge(proofPublicKeyX, proofPublicKeyY, params);
-        (uint lhsX, uint lhsY) = EllipticCurve.ecMul(
-            params.proofResponse,
-            GENERATOR_X,
-            GENERATOR_Y,
-            0,
-            PRIME_FIELD_MODULUS
-        );
-        (uint rhsProofX, uint rhsProofY) = EllipticCurve.ecMul(
-            challenge,
-            proofPublicKeyX,
-            proofPublicKeyY,
-            0,
-            PRIME_FIELD_MODULUS
-        );
-        (uint rhsX, uint rhsY) = EllipticCurve.ecAdd(
-            params.proofCommitmentX,
-            params.proofCommitmentY,
-            rhsProofX,
-            rhsProofY,
-            0,
-            PRIME_FIELD_MODULUS
-        );
-
-        return lhsX == rhsX && lhsY == rhsY;
+        int256 i;
+        int256 o;
+        int256 y;
+        int256 z;
+        int256 w;
+        int256 alpha;
+        int256 gamma;
     }
 
     function reEncrypt(ReEncryptInputs memory params)
         public
         returns (uint, uint, bytes memory, uint)
     {
-        require(block.timestamp <= params.proofExpiry, "Proof expired");
         require(countingContract.isAllowed(msg.sender), "Unauthorized service provider");
-        bytes32 nonceKey = keccak256(abi.encodePacked(msg.sender, params.proofNonce));
-        require(!usedProofNonces[nonceKey], "Proof already used");
-
-        (uint proofPublicKeyX, uint proofPublicKeyY, bool proofKeyRegistered) = countingContract.getProofPublicKey(msg.sender);
-        require(proofKeyRegistered, "Missing proof key");
-        require(verifyZKProof(proofPublicKeyX, proofPublicKeyY, params), "Proof verification failed");
-        usedProofNonces[nonceKey] = true;
+        require(
+            verifyProof(params.i, params.o, params.y, params.z, params.w, params.alpha, params.gamma),
+            "Proof verification failed"
+        );
 
         // Perform re-encryption
         (uint _c1prime, uint _c2prime, uint _c4prime) = performReEncryption(params.rk1, params.rk2, params.rk3);

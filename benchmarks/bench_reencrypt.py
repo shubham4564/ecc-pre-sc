@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 # Paths relative to this file
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-ARTIFACT_PRE = os.path.join(ROOT, "artifacts", "PRE.json")
+COMPDATA_PRE = os.path.join(ROOT, "data", "PRE_compData1.json")
 CONTRACT_INFO = os.path.join(ROOT, "data", "contract_info.json")
 OUT_CSV  = os.path.join(os.path.dirname(__file__), "reencrypt_bench.csv")
 
@@ -28,9 +28,9 @@ except ModuleNotFoundError:
 
 
 def load_contract(w3: Web3):
-    with open(ARTIFACT_PRE, "r") as f:
+    with open(COMPDATA_PRE, "r") as f:
         pre = json.load(f)
-    abi = pre["abi"]
+    abi = pre["PRE"]["abi"]
 
     with open(CONTRACT_INFO, "r") as f:
         addr = json.load(f)["contract_address"]
@@ -64,35 +64,23 @@ def send_reencrypt(w3: Web3, contract, from_addr, pk, chain_id, params):
 
 
 def make_real_params():
-    """Produce the exact inputs your app passes to reEncrypt using SP.py helpers."""
+    """Build reEncrypt params using arithmetic ZKP inputs."""
     sp = sp_module.SP()
-    # Re-encryption keys (rk1,rk2,rk3)
+
     rk1, rk2, rk3 = sp.rekeygenerate()
+    proof = sp_module.generate_arithmetic_zkp_inputs()
 
-    # Generate commitments and proof inputs mirroring SP.main() flow
-    # Small sizes are sufficient for proof check and match existing usage in SP.py
-    i = sp_module.generate_large_prime(20)
-    o = sp_module.generate_large_prime(20)
-    bytesize = 20
-    j = sp_module.get_rand(bytesize)
-    v = sp_module.get_rand(bytesize)
-    w = sp_module.generate_large_prime(10)
-    y, z, A, B = sp_module.computeCommitment(i, o, j, v, w)
-    gamma = sp_module.computeChallenge(i, y, o, z, A, B, w)
-    alpha = sp_module.computeProof(j, gamma, v, w)
-
-    # All values must be uint256-compatible ints (they already are)
     return {
         "rk1": int(rk1),
         "rk2": int(rk2),
         "rk3": int(rk3),
-        "i": int(i),
-        "o": int(o),
-        "y": int(y),
-        "z": int(z),
-        "w": int(w),
-        "alpha": int(alpha),
-        "gamma": int(gamma),
+        "i": int(proof["i"]),
+        "o": int(proof["o"]),
+        "y": int(proof["y"]),
+        "z": int(proof["z"]),
+        "w": int(proof["w"]),
+        "alpha": int(proof["alpha"]),
+        "gamma": int(proof["gamma"]),
     }
 
 

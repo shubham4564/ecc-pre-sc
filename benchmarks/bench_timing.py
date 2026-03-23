@@ -327,6 +327,10 @@ def plot_timing(rows: List[tuple], out_path: pathlib.Path):
     try:
         import matplotlib
         matplotlib.use("Agg")
+        matplotlib.rcParams["font.family"] = "serif"
+        matplotlib.rcParams["font.serif"] = ["Times New Roman", "Times", "Nimbus Roman", "DejaVu Serif"]
+        matplotlib.rcParams["pdf.fonttype"] = 42
+        matplotlib.rcParams["ps.fonttype"] = 42
         import matplotlib.pyplot as plt
         import matplotlib.patches as mpatches
         import numpy as np
