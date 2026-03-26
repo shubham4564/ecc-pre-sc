@@ -1,0 +1,1464 @@
+40 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+Journal of Intelligent Computing and Networking
+https://www.ffspub.com/index.php/jicn/index
+ISSN 3079-9228 (print)
+E-mail: jicn.office@ffspub.com
+Article
+A Low-Latency and Secure Data Sharing Method Based on
+Blockchain and Outsourced Attribute-Based Encryption
+Wen Zhang1, Li Duan1, Yimeng Feng2, Pengrui Chen1, Lufeng Feng1,†
+1 Beijing Key Laboratory of Security and Privacy in Intelligent Transportation, Beijing Jiaotong University, Beijing 100044, China
+2 School of Computing, Macquarie University, Sydney 2109, Australia
+†E-mail: lufeng.feng@bjtu.edu.cn
+Received: October 29, 2025 / Revised: November 21, 2025 / Accepted: November 25, 2025 / Published online: November 27, 2025
+Abstract: Current data sharing mechanisms face limitations in fine-grained access control, encryption overhead, terminal re-
+source consumption, and result verifiability. These issues make them unsuitable for the low-latency and high-security demands
+of drone swarm collaboration in cloud-edge-end architectures. To address these challenges, this paper proposes a secure and
+low-latency data sharing method based on blockchain and outsourced attribute-based encryption. First, in the edge layer, a
+blockchain network is responsible for enforcing access control, where policy-matching smart contracts enforce fine-grained
+attribute-based access control. Second, encryption and decryption tasks are outsourced to the edge and cloud, effectively re-
+ducing the computational burden on terminal devices. Third, a consistency verification smart contract is introduced to validate
+outsourced results, ensuring data confidentiality and integrity. Experimental results show that the proposed method signifi-
+cantly lowers system latency and terminal overhead while maintaining strong security, making it suitable for edge-collaborative
+applications with strict real-time requirements.
+Keywords: Blockchain; low-latency data sharing; outsourced attribute-based encryption; smart contract; edge computing secu-
+rity
+https://doi.org/10.64509/jicn.12.44
+1 Introduction
+Drone swarms, as collaborative systems composed of mul-
+tiple autonomous or semi-autonomous drones, are emerging
+as a core technology reshaping the execution of critical
+tasks. Their application domains have extended beyond tradi-
+tional military reconnaissance to include public safety, preci-
+sion agriculture, industrial inspection, and disaster response
+[1]. These scenarios are commonly characterized by task
+complexity, dynamic environments, and stringent real-time
+requirements. Rather than serving merely as isolated data col-
+lection platforms, drones within a swarm operate as integrated
+cooperative entities, exhibiting collective intelligence through
+tight coordination and real-time information exchange. The
+realization of swarm intelligence and collaborative behavior
+fundamentally relies on reliable and low-latency data ex-
+change, both among individual drones and between the swarm
+and external command nodes [2]. Therefore, the efficiency of
+data sharing, especially with respect to latency, has become a
+critical concern in drone swarm missions.
+Furthermore, drone systems are typically deployed in
+open and complex environments, which expose them to a
+diverse range of security threats. During transmission, data
+is highly vulnerable to eavesdropping, tampering, replay at-
+tacks, and unauthorized access. These threats can lead to the
+disclosure of sensitive mission-related information, such as
+reconnaissance objectives or navigation routes, and may com-
+promise the integrity of mission execution. In more severe
+cases, adversaries may inject falsified data to gain unautho-
+rized control over the swarm. Therefore, guaranteeing the
+confidentiality, integrity, and authenticity of shared data is
+a fundamental prerequisite for enabling drone swarms to
+operate reliably in mission-critical scenarios.
+In response to the aforementioned threat landscape,
+the security architecture of drone systems must not only
+prevent external adversaries from eavesdropping on or ma-
+nipulating communication channels, but also defend against
+† Corresponding author: Lufeng Feng
+*Academic Editor: Mengwei Xu
+© 2025 The authors. This article is an open access article distributed under the terms and conditions of the Creative Commons Attribution (CC BY) license
+(https://creativecommons.org/licenses/by/4.0/).
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 41
+potential threats posed by internal untrusted entities, such
+as compromised drones or malicious cloud servers, which
+may attempt to tamper with or fabricate mission-critical
+data. Under this adversarial model, conventional encryption
+mechanisms that focus solely on channel protection, such as
+Transport Layer Security (TLS) or Internet Protocol Security
+(IPSec) [3, 4], are insufficient to ensure end-to-end secu-
+rity across the entire data lifecycle. This limitation becomes
+particularly pronounced in environments characterized by
+resource-constrained nodes, unstable communication links,
+and stringent real-time mission requirements.
+Recent research has explored the integration of au-
+thentication mechanisms, symmetric encryption, and identity
+management protocols to establish secure communication
+frameworks for drone networks [5]. However, these methods
+often struggle to balance lightweight design, low latency, and
+strong security guarantees when applied to scenarios charac-
+terized by highly dynamic network topologies, heterogeneous
+node collaboration, and resource-constrained environments.
+Such limitations hinder their practical feasibility and scal-
+ability in real-world deployments. Consequently, there is
+an urgent need for a lightweight security mechanism that
+operates effectively in untrusted network environments, sup-
+ports fine-grained access control, and resists active attacks,
+in order to ensure both communication security and mission
+availability for drone swarms in critical applications.
+Blockchain technology has attracted considerable at-
+tention for its decentralized architecture, tamper resistance,
+and traceability, particularly in ensuring identity trustwor-
+thiness and data integrity [6, 7]. However, existing studies
+primarily focus on scenarios involving static identity man-
+agement or data provenance, while lacking systematic solu-
+tions for efficient and secure data sharing under conditions
+of resource constraints and dynamic network topologies.
+To address this gap, this paper proposes a low-latency and
+secure data sharing scheme based on blockchain and out-
+sourced attribute-based encryption, aimed at enhancing both
+the efficiency and security of data exchange in edge environ-
+ments. First, access control is delegated to the edge network,
+where fine-grained, attribute-based authorization is enforced
+through smart contracts. Second, an outsourced attribute-
+based encryption scheme is employed to offload encryption
+and decryption tasks to edge and cloud layers. The correct-
+ness of the outsourced results is then verified via a consistency
+validation contract, thereby enabling secure and efficient data
+sharing. The main contributions of this paper are as follows:
+1) A low-latency and secure data sharing scheme tailored
+for drone-based cloud-edge-end collaborative scenarios is
+proposed.By integrating blockchain technology with out-
+sourced attribute-based encryption, the scheme effectively
+addresses several limitations of traditional data sharing
+mechanisms, including coarse-grained access control, ex-
+cessive computational burden on terminal devices, and
+insufficient security verification.
+2) A policy-driven smart contract mechanism is designed
+to delegate access control authority to the edge-
+side blockchain network. This facilitates fine-grained,
+attribute-based access control, enhances the flexibility
+and scalability of access policy enforcement, and reduces
+dependence on centralized cloud-based management.
+3) A consistency verification smart contract mechanism is
+developed to validate the correctness of outsourced en-
+cryption results executed at the edge or cloud layer. This
+design strengthens the trustworthiness and integrity of the
+data processing pipeline. Experimental evaluations con-
+firm the effectiveness of the proposed method in reducing
+system latency and terminal resource consumption.
+The remainder of this paper is organized as follows.
+Related work is reviewed in Section 2. In Section 3, we in-
+troduce the problem formulation. Specifically, it contains the
+system model, threat model, and design goals. Section 4 de-
+tails the related methods and technologies. Section 5 provides
+the security analysis of the proposed method and theoretically
+demonstrates its effectiveness. The experimental analyses are
+provided in Section 6. Section 7 concludes this paper.
+2 Related Work
+In drone-enabled cloud–edge–end collaborative environ-
+ments, the inherent characteristics of dynamic network
+topologies, limited device resources, and untrusted commu-
+nication channels impose stringent demands on both the
+security and efficiency of data sharing. To address these
+challenges, existing research has primarily focused on en-
+suring secure data exchange through the implementation of
+access control mechanisms and the design of cryptographic
+algorithms.
+2.1 Access Control Mechanisms in Drone
+Swarms
+Implementing secure access control in drone swarms is criti-
+cal to ensuring system reliability. The predominant models in
+current practice include Role-Based Access Control (RBAC)
+[8] and Attribute-Based Access Control (ABAC) [9]. RBAC
+assigns permissions based on predefined roles, offering sim-
+plicity in management but limited granularity. In contrast,
+ABAC makes dynamic access decisions based on entity at-
+tributes and policy rules, enabling fine-grained and flexible
+control at the cost of increased policy evaluation complex-
+ity. Jeong et al. [10] designed a multi-operator drone control
+system using the RBAC model, the administrator role is
+granted full system privileges, the pilot role is limited to flight
+control and status monitoring, and the camera operator role
+is restricted to controlling the gimbal and accessing video
+data. This role-based separation effectively prevents opera-
+tional conflicts among multiple operators and enhances the
+efficiency and precision of task execution.
+However, traditional RBAC models exhibit limited
+adaptability in dynamic environments, as they are unable to
+adjust permissions in response to real-time contextual con-
+ditions such as time, location, or device status. To address
+this limitation, Pang et al. [11] proposed a Location and
+Environment-Aware Attribute-Based Access Control (LE-
+ABAC) policy for securing drone flight control systems. This
+method combines internal drone attributes with external con-
+textual information, such as geographic location and environ-
+mental conditions, to define fine-grained access rules, thereby
+enabling precise control over internal data interactions and
+mitigating risks such as malicious code injection and data
+
+42 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+tampering in PX4-based flight controllers. Nonetheless, this
+work relies on a centralized Policy Decision Point (PDP) and
+attribute management service. If the central node is compro-
+mised, attackers may forge attributes or manipulate policies
+to bypass access control mechanisms. Therefore, although
+conventional RBAC and ABAC models improve the manage-
+ability and flexibility of access control in drone collaboration
+scenarios to a certain extent, their limited granularity and
+reliance on centralized infrastructure pose significant chal-
+lenges. These limitations hinder their ability to fully support
+the distributed and autonomous coordination requirements of
+secure drone swarm operations.
+2.2 Secure Data Sharing in Drone
+Cloud–Edge–End Collaboration
+In the process of data sharing within drone-enabled
+cloud–edge–end collaborative systems, instructions and data
+are often transmitted over open communication channels,
+making them susceptible to malicious interception or forgery.
+During data exchange, edge collaboration nodes and cloud
+service nodes may also pose threats to the confidentiality
+and consistency of shared data. Attribute-Based Encryption
+(ABE) has emerged as a promising cryptographic method
+that enables fine-grained access control by specifying decryp-
+tion policies based on user attributes [12, 13]. This level of
+granularity enhances the security of data sharing, particularly
+in the highly dynamic environments in which drones oper-
+ate. However, conventional access control schemes typically
+impose significant computational overhead, rendering them
+unsuitable for resource-constrained terminal devices.
+To mitigate this issue, encryption and decryption tasks
+can be partially outsourced to ground stations or edge com-
+puting nodes [14, 15]. For instance, Zhou et al. [16] proposed
+a blockchain-based secure and efficient data sharing model
+that leverages the immutability of blockchain and smart con-
+tracts to support identity authentication and access control,
+while outsourcing cryptographic operations to accelerate en-
+cryption and decryption. Nevertheless, the model does not
+address the verifiability the outsourced encryption process.
+To overcome these challenges, Ge et al. [14] proposed the
+verifiable and fair attribute-based proxy re-encryption (VF-
+ABPRE) scheme, a ciphertext-policy attribute-based proxy
+re-encryption mechanism that ensures verifiability and fair-
+ness. This work employs commitment techniques to allow
+recipients to verify the correctness of re-encryption, while
+preventing honest cloud servers from being falsely accused.
+Similarly, Sun et al. [15] introduced VF-PPBA, a verifiable
+and fair proxy broadcast re-encryption scheme supporting
+attribute-based data sharing among multiple recipients. By
+preserving structure and incorporating commitment mecha-
+nisms, the scheme enables users to verify the correctness
+of re-encrypted ciphertexts. However, both approaches suffer
+from high verification complexity and lack automated execu-
+tion mechanisms, making it difficult to support efficient and
+scalable data validation workflows.
+To address the challenges posed by the dynamic topol-
+ogy of drone networks, recent studies [17–19] have explored
+the use of blockchain technology and its embedded smart con-
+tracts to automate the enforcement of access control policies.
+These approaches enable decentralized access management
+and allow systems to adapt to rapid changes in network
+topology. By leveraging smart contracts, access rights can
+be granted or revoked automatically based on predefined
+conditions, thereby reducing dependence on centralized man-
+agement entities and enabling real-time responsiveness to
+network state variations.In drone network scenarios, Feng et
+al. [19] developed a blockchain-based framework that lever-
+ages smart contracts and outsourced parallel computation
+to enable privacy-preserving data sharing without a trusted
+third party. Bera et al. [20] investigated the applicability and
+challenges of blockchain in 5G-enabled Internet of Things
+(IoT) environments and introduced a novel secure framework
+named BSD2C-IoD. This framework is designed to safe-
+guard data exchanged among drone communication entities
+and to secure communication between drones and ground
+control. The study further proposes a consensus-based algo-
+rithm to facilitate lightweight verification and block addition.
+Mandal et al. [21] proposed CSUAC-IoT, a certificateless
+signcryption scheme with three-factor authentication for IoT
+systems. By integrating cryptographic techniques with bio-
+metric verification and mobile devices, the scheme ensures
+secure communication between IoT devices and users, and
+supports user authorization, authentication, and revocation.
+These studies collectively enhance the security and efficiency
+of complex network environments composed of drones, IoT
+devices, and edge computing nodes, demonstrating the pivotal
+role of blockchain in achieving these goals. Accordingly, the
+integration of smart contracts and attribute-based encryption
+enables fine-grained and secure data sharing without reliance
+on trusted third parties.
+In summary, existing studies addressing data sharing
+security in drone-enabled cloud–edge–end collaborative sce-
+narios face the following challenges: (1) The traditional ac-
+cess control mechanisms are prone to single points of failure
+or trust issues. (2) Current approaches often rely on com-
+putationally intensive encryption operations performed on
+terminal devices, resulting in low efficiency and high resource
+consumption. (3) There is a lack of verifiability mechanisms
+to ensure the correctness and trustworthiness of encryption
+results. To address these challenges, this paper proposes a
+blockchain-based smart contract for fine-grained access con-
+trol, which ensures the immutability and transparency of
+access policies and enables precise data authorization and
+protection. Furthermore, an outsourced attribute-based en-
+cryption scheme is adopted to offload complex cryptographic
+operations to edge or cloud servers. A consistency verification
+mechanism, implemented via smart contracts, is introduced
+to validate outsourced results, thereby reducing the com-
+putational burden on drone terminals while ensuring the
+trustworthiness and integrity of shared data.
+3 Problem Formulation
+Under the cloud–edge–end collaborative architecture, tradi-
+tional data sharing mechanisms struggle to meet the demands
+for efficient and secure data exchange due to centralized bot-
+tlenecks, poor adaptability to dynamic environments, and un-
+trusted communication channels. These limitations are partic-
+ularly pronounced in resource-constrained terminal scenarios
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 43
+such as drones. To address these challenges, this paper pro-
+poses a low-latency and secure data sharing method based on
+blockchain and outsourced attribute-based encryption, which
+significantly enhances both the efficiency and security of data
+sharing in edge environments. This section presents the sys-
+tem model and threat model of the proposed method, and
+gives its corresponding security objectives.
+3.1 System Model
+The security assumptions of this paper consider the command
+center as a trusted authority within the system, equipped with
+comprehensive security protection mechanisms and access
+control policies. It is responsible for centralized scheduling,
+task issuance, and key management. Ground control sta-
+tions (GCSs) are modeled as enhanced-trust, auditable edge
+nodes equipped with secure hardware execution and reliable
+communication links. They handle ciphertext transformation
+and policy evaluation without retaining long-term decryption
+keys, preventing them from becoming single points of fail-
+ure even under partial compromise. In contrast, the cloud
+server is considered untrusted, as it may be subject to ex-
+ternal attacks or internal unauthorized access, posing risks
+such as data leakage, tampering, or denial-of-service attacks.
+Similarly, drones are treated as untrusted terminals, given
+their deployment in open and complex environments where
+they are vulnerable to eavesdropping, tampering, replay at-
+tacks, and unauthorized access. As a result, their operations
+cannot be fully trusted. Therefore, throughout the processes
+of data collection, transmission, and processing, it is essen-
+tial to design a lightweight security mechanism that supports
+end-side encryption and fine-grained access control while
+providing resilience against tampering by untrusted cloud
+servers. Ensuring the confidentiality, integrity, and availabil-
+ity of system-wide data under these conditions necessitates a
+rigorously designed and verifiable security framework.
+The blockchain-based secure data sharing method for
+drone collaboration proposed in this paper is illustrated in the
+system model shown in Figure 1. The model involves five key
+entities: drones, ground control stations (GCS), blockchain
+network, cloud service (CS), and the command center. Drones
+are responsible for receiving commands, executing cooper-
+ative tasks, and collecting mission-related data, which are
+subsequently uploaded to the GCS. As edge computing nodes,
+the GCSs not only manage drone scheduling but also perform
+preliminary data processing and forwarding. CS provides
+auxiliary storage and computational capabilities. However,
+due to its uncontrolled operating environment, it is considered
+untrusted.
+The blockchain functions as a distributed ledger system
+jointly maintained by multiple GCS nodes. Embedded smart
+contracts are employed to perform essential operations such
+as task validation and data access auditing. The command
+center, acting as a trusted authority, oversees identity registra-
+tion, key distribution, and command dissemination for both
+drones and GCSs, thereby establishing a controllable root of
+trust at the system initialization phase.
+Nevertheless, existing data sharing mechanisms exhibit
+notable limitations in terms of access control granularity,
+cryptographic computation overhead, terminal resource con-
+sumption, and result verifiability. These shortcomings make
+them inadequate for meeting the combined requirements of
+low latency and high security in drone swarm collaboration
+within cloud–edge–end architectures. To address these chal-
+lenges, this paper proposes a low-latency and secure data
+sharing scheme that integrates blockchain with outsourced
+attribute-based encryption. By distributing access control en-
+forcement and encryption verification tasks across edge and
+cloud layers, the proposed method significantly reduces the
+computational burden on terminal devices. The integration
+of this system model and methodology not only improves
+data sharing efficiency in edge-collaborative environments,
+but also reduces system latency and terminal energy con-
+sumption while preserving security, thereby offering strong
+potential for real-world deployment and broader application.
+Figure 1: The model of data sharing scheme blockchain-
+based and attribute outsourcing encryption.
+3.2 Threat Model
+Due to the inherent characteristics of drone swarm networks
+and their communication channels, the security vulnerabili-
+ties and risks of privacy infringement may arise. The proposed
+scheme in this paper adopts the widely used Dolev–Yao (DY)
+threat model [22], which assumes that an adversary is ca-
+pable of intercepting, modifying, and fabricating messages
+transmitted over insecure channels. Accordingly, the specific
+capabilities of the adversary in this model are defined as
+follows:
+(1) During communication, a malicious drone may eaves-
+drop on transmitted messages and further manipulate the
+communication channel by modifying or injecting falsified
+messages.
+(2) A malicious drone may collude with other drones to re-
+peatedly request messages from the ground station, thereby
+disrupting the normal operation of the server through a denial-
+of-service attack.
+(3) Drones and cloud servers may forge data or perform incor-
+rect encryption and decryption operations. A drone may also
+
+44 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+generate falsified decryption proofs in order to deny respon-
+sibility and shift blame to the cloud server for erroneous data
+storage.
+3.3 Security Objectives
+The primary objective of designing a data sharing scheme
+is to ensure data security and privacy while maintaining its
+availability. The data sharing scheme proposed in this paper
+is designed to achieve the following three security goals:
+(1) Data Confidentiality
+Data must be encrypted during both transmission and
+storage to prevent unauthorized access. In the data sharing
+process, open communication channels and insecure net-
+works can lead to the leakage of sensitive information. To
+preserve data confidentiality, all data transmitted and stored
+must undergo encryption. Encryption ensures that even if data
+is intercepted during transmission or accessed illegally from
+storage devices, the content remains protected and cannot be
+easily deciphered.
+(2) Data Integrity
+Data integrity refers to the assurance that data has not
+been tampered with during storage or transmission. In gen-
+eral, hash functions can be employed to generate a unique
+hash value for the data. The sender computes the hash be-
+fore transmission and sends it along with the data. Upon
+receipt, the receiver recomputes the hash and compares it with
+the original; if the two values match, the data is considered
+unaltered. Additionally, digital signatures offer a means of
+verifying both data integrity and authenticity. They not only
+detect unauthorized modifications but also confirm the origin
+of the data. However, since the proposed scheme involves out-
+sourced attribute-based encryption, it requires not only verifi-
+cation of data integrity and consistency, but also validation of
+the correctness of outsourced encryption operations.
+(3) Access Control
+Strict access control mechanisms must be enforced
+throughout the data sharing process to ensure that only users
+with appropriate permissions are allowed to access or modify
+the data. Access control is a fundamental component of any
+data sharing scheme, serving to enforce permission bound-
+aries and protect sensitive information. An effective access
+control strategy typically consists of two key steps: authenti-
+cation and authorization. Authentication verifies the identity
+of the user, and once verified, authorization determines which
+specific resources the user is permitted to access.
+4 Method
+To enable secure end-to-end data sharing, this paper pro-
+poses a low-latency and secure data sharing scheme based
+on blockchain and outsourced attribute-based encryption. The
+proposed scheme first leverages blockchain technology to
+delegate access control permissions and policy matching to
+the edge layer, where dynamic and automated access con-
+trol is enforced via smart contracts. Second, by employing
+an outsourced attribute-based encryption algorithm, compu-
+tationally intensive encryption tasks are offloaded to edge and
+cloud layers, thereby significantly reducing the computational
+burden on terminal devices. Finally, the consistency and se-
+curity of the entire data sharing process are verified through
+smart contracts, ensuring both the efficiency and reliability of
+data exchange.
+This section provides a detailed description of the pro-
+posed data sharing method. The overall system workflow is
+illustrated in Figure 2. The symbols and their corresponding
+meanings used in this paper are summarized in Table 1. The
+protocol is designed as follows:
+Setup (λ ,U) → (pp, msk): The system setup algorithm
+executed by the command center takes as input the secu-
+rity parameter λ and the attribute universe U, and outputs
+the public parameters, including the public parameters for
+message-locked encryption pp, and the master secret key
+msk.
+AES.Enc(pp, m, K) → Cm: This process is a symmetric
+encryption procedure executed on the drone and the GCS.
+It takes as input the system public key pp, the message
+m, the symmetric key K, and outputs the ciphertext Cm.The
+symmetric key K = H1 (RD1 ⊕ RG1) is generated based on
+Physical Unclonable Function (PUF) technology [23]. Note
+that PUFs are not mandatory for the correctness of the proto-
+col. They serve as an optional hardware-based enhancement
+for binding symmetric keys to device-specific physical char-
+acteristics, providing resistance against key extraction attacks.
+If a deployment does not support PUF hardware, conventional
+key-agreement mechanisms can be adopted without affecting
+the remaining components of the scheme.
+AES.Dec(pp,Cm, K) → m: This process is a symmetric
+decryption procedure executed on the drone and the ground
+control station (GCS). It takes as input the system public key
+pp, the ciphertext Cm, and the symmetric key K, and outputs
+the message m.
+MLE .Enc(pp, m, σ ) →
+
+R, r,CMLE ,Ctag
+	
+: This process
+is the Message-Locked Encryption (MLE) encryption proce-
+dure. It takes as input the system public key pp, the message
+m, the MLE encryption key σ, outputs the message authen-
+tication code R, the hash r of the combined message and
+code, and the locked ciphertextCMLE , Ctag. The ciphertext tag
+Ctag ensures non-duplicate data storage on the cloud server
+without requiring decryption.
+KeyGen (msk, S) → SK: This process is also executed
+by the command center. It takes as input the master secret
+key msk and the attribute set S, and outputs the private key
+SK = (z, T K).
+ABE.Enc (pp, (A, ρ) ,CMLE , σ , r) → CT : This process is
+an encryption procedure. It takes as input the system pub-
+lic key pp and the access control policy (A, ρ), treats the
+MLE encryption key σ as part of the secret in the linear se-
+cret sharing scheme, and combines it with the MLE ciphertext
+and encryption parameters. The final output is the complete
+ciphertext CT .
+ABE.UserEnc (pp, (A, ρ) ,CMLE , σ , r) → Cuser: This al-
+gorithm is executed by the GCS. It performs partial encryp-
+tion computation and takes as input the system public keypp,
+the access control policy (A, ρ), the MLE ciphertext, and the
+MLE encryption parameters. It outputs the partial ciphertext
+Cuser.
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 45
+Figure 2 : The flowchart of data sharing scheme
+blockchain-based and attribute outsourcing encryption,
+showing how drone, ground stations, the cloud, and the
+blockchain interact across data encryption, outsourced
+computation, access control, and final decryption. The
+figure highlights how computation is distributed among
+entities and how smart contracts enforce authorization and
+verify correctness.
+Table 1: Notation table
+Notation Description
+λ Security parameters
+U, S Universal attribute set, Attribute subset
+pp, msk Public parameters, Master secret key
+(e, G, GT , G, p) Bilinear mapping pair
+f1, . . . ,fU Attribute function
+α, a, φ , ϕ, Q Random number
+H1, H2 Hash function
+DID, GID Unique real identity of drone and ground station
+K Symmetric key
+T S, ∆T, TC Timestamp, Time interval, Current system time
+m1, m Original message, Processed message
+Cm Ciphertext
+σ , R, r MLE encryption parameters
+C MLE Ciphertext for locked encryption output
+C tag Ciphertext tag
+SK, {z, T K} Private key, Private key components
+A Access control policy
+(A, ρ) Data access control structure
+CT Attribute-encrypted ciphertext
+Cuser User-side encrypted ciphertext
+Cout Cloud-side encrypted ciphertext
+Dout Partially decrypted ciphertext
+C′ Fully decrypted ciphertext
+π Message decryption proof
+ACC SC Policy matching contract
+V ER SC Consistency verification contract
+ABE.OutEnc (pp, (A, ρ)) → Cout: This algorithm is exe-
+cuted on the cloud server. It takes as input the system public
+key pp, the message m, and the access control policy (A, ρ),
+and outputs a partially encrypted ciphertext Cout.
+ABE.Dec (pp, (A, ρ) , SK,CT ) → C′ consists of the fol-
+lowing two partial decryption algorithms:
+ABE.OutDec (pp, (A, ρ) , T K,CT ) → Dout: This algo-
+rithm is executed on the GCS and performs partial decryption.
+It takes as input the private key T K =
+ 
+K, L, {Kx}x∈S
+
+and
+the ciphertext CT , as defined in Equation 1, and outputs a
+partially decrypted ciphertext Dout.
+CT = ((A, ρ) ,CMLE ,Ctag,C1,
+
+C2, j,C3, j,C4, j
+	
+j∈[1,l]) (1)
+ABE.UserDec (pp, z, Dout) → C′: This is the decryption
+algorithm executed on the drone terminal, which runs after
+partial decryption. It takes as input the system public key
+pp, the private key z, and the partially decrypted ciphertext
+Dout from the cloud server, and outputs the fully decrypted
+ciphertext C′.
+MLE .Dec(pp, R,CMLE ,C′) → {m′, π}: This process is
+the MLE decryption procedure. It takes as input the system
+public key pp, the locked ciphertext C, the message authen-
+tication code R, and the fully decrypted ciphertext C′
+MLE ,
+and outputs the recovered plaintext m′ from message-locked
+decryption and the corresponding decryption proof π.
+Finally, two smart contracts are deployed on the
+blockchain. The first is the policy matching contract, de-
+noted as ACC SC, which verifies whether V (S, (A, ρ)) = 1
+holds; if so, access permission is granted. The second is the
+consistency verification contract, denoted as V ERSC, which
+checks whether the condition Ctag = φ ⊕ ϕ ⊕ H2(m′) ⊕ H2(R)
+is satisfied; if the condition holds, consistency verification is
+considered successful.
+4.1 System Initialization Phase
+The Setup (λ ,U) → (pp, msk) algorithm, executed by the
+command center, takes as input the security parameter λ and
+the universal attribute set U, and returns the public parame-
+ters pp, including the public parameters for message-locked
+encryption and the master secret key msk. The command
+center generates a bilinear map tuple(e, G, GT , G, p), and ran-
+domly selects values (α, a ∈ Z∗
+p, g, f1, . . . ,fU , φ , ϕ, Q ∈ G),
+along with two hash functions H1 and H2. The master secret
+key is defined as msk = gα, and the public parameters pp are
+constructed accordingly.
+Each drone and ground control station is equipped with
+a PUF chip and assigned a unique identity, denoted as DID
+and GID, respectively. After pre-registration, the registration
+algorithm executed by the command center takes as input the
+master secret key msk and the user’s attribute subset S, and
+outputs the private key SK = {z, T K}.
+pp = (e, G, GT , g, f1, . . . ,fU , φ , ϕ, ga, e(g, g)α ) (2)
+The drone Dr1 first performs mutual authentication and
+key agreement with the GCS1, resulting in the establishment
+of a symmetric key K and a secure communication channel.
+Afterward, Dr1 encrypts the collected data using symmetric
+encryption and transmits it to GCS1.
+(1) According to the blockchain and PUF-based mutual au-
+thentication protocol proposed in [23], the validity of the
+
+46 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+counterparty’s identity can be verified. If the authentication is
+successful, both parties generate a session key K1.
+(2) The drone Dr1 encrypts the current system time T S
+through AES.Enc (K1, DID∥TC) to request authentication
+from the GCS. The ground station first checks whether the
+current time TC satisfies the condition TC − T S < ∆T . If the
+condition holds, the session key is considered valid and has
+not expired; otherwise, re-authentication is required.
+(3) The drone uses the symmetric key K1 to encrypt the col-
+lected data m1 through symmetric encryption, resulting in the
+ciphertext Cm1. The process is described in Equation 3.
+Cm1 = AES.Enc (pp, (DID1||m1) , K1) (3)
+4.2 Data Encryption and Upload Phase
+In this phase, after decrypting the data, the GCS1 processes
+and organizes the data, defines the data access control struc-
+ture, and performs partial encryption. The partially encrypted
+data is then outsourced to the cloud server for final encryption
+and storage. The sequence diagram is shown in Figure 3.
+Figure 3: The sequence diagram of the encryption request
+phase of the data sharing scheme, where the drone trans-
+mits encrypted data to the ground station, and the ground
+station performs MLE locking and partial ABE encryp-
+tion. The cloud completes the outsourced encryption, and
+the blockchain stores metadata necessary for subsequent
+access-control verification.
+(1) GCS1 decrypts the data using the key K1 through
+AES.Dec (pp,Cm1, K1). If the resulting data has the prefix
+DID1, the original datam1 is successfully recovered. The data
+is then processed and reorganized to form a new data item m,
+to which a new tag mtag is assigned.
+(2) First, the data m is encrypted using the message-locked
+encryption function MLE .Enc(pp, σ , m), which takes as in-
+put the system public key pp, the data m, and the MLE
+encryption key σ, and outputs the message authentication
+code R, the hash r of the combined message and code,
+and the locked ciphertext and tag CMLE and Ctag. A ran-
+dom value R ∈ {0,1}k and a random σ ∈ Zp are selected.
+The message-locked encryption computes r = H2(m∥R) and
+C = (m∥R) ⊕ H1 (e(g, g)αrt), while the ciphertext tag is de-
+fined as Ctag = φ ⊕ ϕ ⊕ H2(m′) ⊕ H2(R). The ground control
+station stores {mtag,Ctag, R, (A, ρ)} on the blockchain.
+(3) The GCS sets an access structure (A, ρ), where
+(A, ρ) is an l × n matrix and ρ is a mapping that as-
+sociates each row of A with an attribute in the univer-
+sal set U. The partial attribute-based encryption function
+ABE.UserEnc(pp, (A, ρ),CMLE , r,C) is then invoked to per-
+form partial encryption, resulting in the output of a partial
+ciphertext Cuser. Based on the parameters of the MLE encryp-
+tion, a random vector⃗µ = (σ , y2, . . . ,yn) ∈ Zn
+p, rt is set to serve
+as the secret in a linear secret sharing scheme, and y2, . . . ,yn
+are randomly chosen from Zp. For each row A j in A, the
+set λ =
+
+λ j = ⃗µ · A j, j ∈ [1, l]
+	
+is computed. The resulting
+partial ciphertext is constructed as Cuser =
+
+C1 = grt,C2, j =
+CMLE , gaλ j , j ∈ [1, l]
+o
+.
+(4) Upon receiving the partially encrypted data, the
+cloud server executes the outsourced encryption algorithm
+ABE.OutEnc(pp, (A, ρ)). This algorithm takes as input the
+system public key pp and the access control policy (A, ρ),
+and outputs a partially encrypted ciphertext Cout.
+Random values r j ∈ Zp, j ∈ [1, l] are selected, and the
+resulting ciphertext Cout is constructed as shown in Equation
+4. By combining the MLE ciphertext with the partially en-
+crypted ciphertext, the cloud server generates and stores the
+complete ciphertext CT , as defined in Equation 5.
+Cout =
+
+C3, j = f
+−r j
+ρ( j), C4, j = gr j , ∀ j ∈ [1, l]
+
+(4)
+CT = ((A, ρ),Ctag,Cuser ,Cout )
+=
+
+(A, ρ),CMLE ,Ctag,C1,
+
+C2, j,C3, j,C4, j
+	
+j∈[1,l]
+ (5)
+4.3 Data Request and Decryption Phase
+In this phase, the drone Dr2 sends a data request to the
+GCS2, which then forwards the request to the cloud server.
+The cloud server invokes the access control smart contract on
+the blockchain to verify whether the attributes of Dr2 satisfy
+the specified access structure. If the verification succeeds, the
+cloud server performs partial decryption and sends the par-
+tially decrypted data to GCS2. The sequence diagram of this
+process is shown in Figure 4.
+(1) The drone Dr2 sends a request message Request =
+DID2, SD2, mtag, T KD2
+	
+to the GCS2, where DID2 de-
+notes the identity of the requesting drone, SD2 represents
+its attribute set, and mtag is the tag of the requested
+data. The GCS invokes the blockchain-based access control
+smart contract ACC SC which verifies whether the condition
+V (SD2, (A, ρ)) = 1 holds. If the verification is successful, the
+contract returns {V,Ctag} to the cloud server and {V,Ctag, R}
+to GCS2, where V indicates that access has been granted.
+(2) Upon receiving the broadcast message indicating the
+completion of the smart contract execution, the cloud
+server sends the corresponding ciphertext tag Ctag along
+with the ciphertext CT . The GCS then executes the algo-
+rithm ABE.OutDec (pp, (A, ρ), T KD2,CT ), where the input
+includes the private key T KD2 =
+ 
+K, L, {Kx}x∈S
+
+and the
+ciphertext CT = ((A, ρ),Ctag,Cuser,Cout). The output is the
+partially decrypted ciphertext Dout , and this decryption algo-
+rithm is executed on the cloud server, as defined in Equation
+6. Let J = { j : ρ( j) ∈ S} ⊂ {1, . . .l} exist an element θ j ∈ Z∗
+p
+such that ∑ j∈J θ j · A j = (1,0, . . . ,0).
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 47
+Dout = e(g, g)rσ α/z
+= e (K,C1)
+e
+
+∏ j∈J C
+θ j
+2, j ·C
+θ j
+3. j, L
+
+· ∏ j∈J e
+
+C
+θ j
+4, j, Kρ( j)
+ (6)
+(3) After receiving the partially decrypted ciphertext from the
+cloud server, the drone Dr2 invokes the ABE.UserDec func-
+tion. It takes as input the system public keypp, the private key
+zD2, and the partially decrypted ciphertext Dout, and performs
+the computation as defined in Equation 7.
+C′ = H1 (Dout zD2 ) = H1 (e(g, g)αrσ ) (7)
+(4) The drone then performs message-locked decryption us-
+ing MLE.Dec (pp, R,CMLE ,C′). The input parameters include
+the system public key pp, the message m, and the access con-
+trol policy (A, ρ). The outputs are the recovered plaintext m′
+from message-locked decryption and the corresponding proof
+π. The decryption is computed as m′∥R = C ⊕C′ = (m′∥R) ⊕
+H1 (e(g, g)αrσ ) ⊕ H1 (e(g, g)αrσ ). By retrieving R from the
+blockchain, the drone obtains m′, and subsequently computes
+the proof π = {H2 (m′) , H2(R)}.
+(5) The drone Dr2 sends the message proof π to the
+blockchain. The smart contract V ER SC on the blockchain
+verifies whether the conditionCtag = φ ⊕ ϕ ⊕ H2(m′) ⊕ H2(R)
+holds. If the verification succeeds, the contract outputs True;
+otherwise, it outputs False and triggers a penalty mechanism
+to punish the cloud server responsible for the outsourced
+encryption.
+Figure 4: The sequence diagram of the decryption request
+phase in data sharing scheme, including access-policy ver-
+ification through the blockchain and outsourced partial
+decryption performed by the cloud and ground station. The
+drone completes the final decryption and submits a proof
+to the blockchain for ciphertext-consistency verification.
+4.4 Design of Smart Contracts
+The design concept of the ACCSC contract is to implement
+an attribute-based access control mechanism, while introduc-
+ing a punishment mechanism to restrict access from malicious
+users. The ACCSC contract initializes the number of users
+(userNum) and number of attributes (ArrNum), and maintains
+a punish mapping that records the punishment status of each
+user.
+The ArrPolicyVerify function is used to verify user ac-
+cess requests, and its pseudocode is shown in Algorithm
+1. The function receives the user attribute matrix ArrUser,
+the cloud attribute matrix PolCloud, as well as the user ID
+(userId) and address (userAdd) as parameters. First, the func-
+tion records the user ID into the punish mapping and checks
+whether the user is in a punishment state. If the user is pun-
+ished, the function returns a string indicating that the user has
+been punished. Otherwise, it calculates the access result based
+on the attribute matrices. If the calculation result is 0, it means
+that the user has the correct access permission, and the func-
+tion returns a string indicating authorized access. Otherwise,
+it returns a string indicating that the user’s access is denied.
+The Punishment function is used to determine whether
+the user needs to be punished, and its pseudocode is shown
+in Algorithm 2. The function takes the user’s address (user-
+Add) as a parameter. First, it records the current time as
+nowTime and checks whether the user’s error time exceeds
+one minute. If it exceeds one minute, it means that the pun-
+ishment period has ended; the function resets the error count
+to 1 and returns false, indicating that the user does not need
+to be punished. If it does not exceed one minute, the function
+checks whether the user’s error count exceeds three times.
+Algorithm 1 Policy matching function (ACC SC.ArrPolicyVerify)
+Input: uint[][] ArrUser, uint[] PolCloud, uint userId, address userAdd
+Output: string Access
+1: function ARRPOLICY VERIFY (ArrUser, PolCloud, userId, userAdd)
+2: punish[userAdd].clo ← userId
+3: if punish[userAdd].falseTime̸=0
+4: ∧PUNISHMENT (userAdd) then
+5: Access ← ’punish’
+6: else
+7: result ← 0
+8: for i ← 0 to resourceNum − 1 do
+9: result+ = PolCloud[userId ]×ArrUser[i][userId ]
+10: end for
+11: if result=0 then
+12: Access ← ’right’
+13: else
+14: punish[userAdd].falseTime ← block.timestamp
+15: Access ← ’wrong’
+16: end if
+17: end if
+18: return Access
+19: end function
+Algorithm 2 Punishment Function (ACC SC.Punishment)
+Input: address userAdd
+Output: bool isPenalty
+1: function PUNISHMENT (userAdd)
+2: if nowTime− punish[userAdd ].falseTime > 1 minutes then
+3: punish [userAdd ].falseTime ← nowTime
+4: punish [userAdd ].falseNum ← 1
+5: isPenalty ← false
+6: else
+7: if punish[userAdd ].falseNum > 3 then
+8: isPenalty ← true
+9: else
+10: punish [userAdd ].falseNum ← punish[userAdd ].falseNum + 1
+11: isPenalty ← false
+12: end if
+13: end if
+14: return isPenalty
+15: end function
+
+48 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+If it does, it means the user should be punished, and the func-
+tion returns true. Otherwise, the function increments the error
+count and returns false, indicating that the user does not need
+to be punished.
+5 Security Analysis
+The attribute-based outsourced encryption and decryption
+protocol designed in this paper does not modify the un-
+derlying algorithm of attribute-based encryption. Based on
+outsourced decryption, the MLE algorithm is integrated into
+the attribute encryption process, assigning part of the encryp-
+tion tasks to a trusted ground station while delegating the
+computation tasks unrelated to the secret values in attribute
+encryption to the cloud server. Therefore, to verify that the
+cloud server cannot obtain any information about the plain-
+text m in this system, a formal security proof is provided for
+the outsourced encryption and decryption part of the proto-
+col. According to the security objectives of this paper, the
+proposed method is analyzed from the following three as-
+pects to evaluate its security in the drone cloud–edge–end
+collaborative data sharing scenario:
+(1) Data Confidentiality
+In end-to-end data sharing, data confidentiality must
+be ensured to prevent sensitive information from being ac-
+cessed by unauthorized third parties. In this scheme, the
+attribute-based outsourced encryption algorithm ensures that
+data remains encrypted throughout the sharing process. Be-
+fore encryption, the attribute-based encryption algorithm as-
+signs a series of attributes to the data, and only users who
+meet these attributes can decrypt it. Therefore, the attribute-
+based encryption approach guarantees that even if the data
+is intercepted during transmission, unauthorized users with-
+out the correct attributes cannot decrypt it, thereby effectively
+protecting the confidentiality of the data.
+MLE .Enc(pp, m, σ ) → {R, r,CMLE ,Ctag} is the MLE en-
+cryption process. The security of this algorithm depends on
+the security of the encryption key σ and the encryption algo-
+rithm itself. Sinceσ is randomly generated and unpredictable,
+CMLE and Ctag do not reveal any information about m. In the
+outsourced encryption process, ABE.OutEnc (pp, (A, ρ)) →
+Cout, the cloud server does not directly access the message
+m or any information that could identify m. This function
+only receives the public parameters pp and the access control
+policy (A, ρ), and performs partial encryption computations,
+which themselves do not leak any information about m.
+ABE.UserDec (pp, z, Dout) → C′ is the terminal decryp-
+tion process. The terminal possesses the private key z and
+the partially decrypted ciphertext Dout from the cloud server.
+These pieces of information are sufficient to complete the
+decryption process and recover the ciphertext C′. However,
+none of this information is included in the partial encryption
+or decryption performed on the cloud server, meaning that
+the cloud server cannot access these private keys or the fully
+decrypted ciphertext.
+MLE .Dec(pp, R,CMLE ,C′) → { m′, π} is the MLE de-
+cryption process. Only users with the complete decryption
+information C′ can perform this process to recover the origi-
+nal message m′. Since the cloud server does not have access
+to the ciphertext C′
+MLE and the private key z, it cannot recover
+the plaintext m.
+All sensitive information (such as m, the private key z,
+and the complete ciphertextC′ ) remains confidential through-
+out the encryption and decryption processes and is neither
+stored nor transmitted on the cloud server.
+(2) Data Integrity
+To ensure data integrity during transmission, this paper
+uses a consistency verification smart contract for valida-
+tion. The contract V ER SC verifies whether Ctag = φ ⊕ ϕ ⊕
+H2(m′) ⊕ H2(R) holds, in order to determine whether the
+data has been correctly decrypted. The smart contract runs
+on the blockchain and does not store or transmit the actual
+message m, thereby preventing any leakage of plaintext in-
+formation. Once the encrypted data is sent, the receiver can
+use the smart contract to verify whether the received data has
+been tampered with. The immutability of the blockchain en-
+sures that once the data and its verification information are
+recorded, they cannot be modified or forged later. This mech-
+anism guarantees that data remains in its original state during
+transmission between nodes. The correctness of outsourced
+encryption is verified through the consistency verification
+smart contract, which executes automatically without human
+intervention, ensuring the transparency of the verification
+process.
+In practical deployments, edge nodes such as GCSs may
+be partially compromised. A malicious GCS could leak in-
+termediate ciphertexts {Cuser,CMLE }, forge resource requests,
+or tamper with policy evaluation. However, it still cannot
+recover the plaintext m, as the ABE user key z is stored ex-
+clusively on UA Vs and the verification tag R is protected by
+the blockchain ledger, making plaintext recovery require col-
+lusion across multiple domains. Moreover, any unauthorized
+modifications to access policies are verifiable on chain and
+subject to penalty contracts, thereby preserving authorization
+integrity even under insider edge attacks.
+(3) Access Control
+The proposed method in this paper delegates cloud-layer
+access control authority to a blockchain network composed
+of edge-layer nodes, implementing fine-grained access con-
+trol through a policy-matching smart contract. The contract
+ACC SC verifies whetherV (S, (A, ρ)) = 1 holds, to determine
+whether the user attributes match the access policy. The de-
+signed access permissions in this paper can be dynamically
+adjusted according to user attributes, ensuring that only users
+with the appropriate attributes can access specific data. The
+attribute-based access control mechanism enhances the flexi-
+bility and security of access control while reducing the risks
+of centralized management and single points of failure. The
+smart contract is used solely for verifying access policies and
+data consistency and does not store the original message m.
+6 Experiments
+To demonstrate the time consumption of the encryption
+and decryption algorithms, the smart contract execution
+time, concurrency performance, and gas consumption in the
+blockchain-based secure data access control method, a series
+of experiments were designed in this paper to evaluate its
+performance.
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 49
+6.1 Experimental Setup
+This paper conducts simulation tests on the application of
+the attribute-based outsourced encryption algorithm in data
+sharing scenarios involving terminal devices with limited re-
+sources, as this algorithm directly affects sharing efficiency.
+Meanwhile, the performance of the smart contracts in pol-
+icy matching and data verification is evaluated to ensure
+the security and verifiability of data during transmission, as
+these operations impact the response speed of the access
+control system. To comprehensively verify the effectiveness
+of the above algorithmic modules in practical applications,
+this section performs detailed measurements of computa-
+tional resource consumption for key components such as
+the attribute-based outsourced encryption algorithm and the
+deployment and invocation of smart contracts. The entire sim-
+ulation process and performance analysis results are recorded
+in detail.
+For the implementation of the outsourced attribute-based
+encryption scheme, Java was used to develop the ABE algo-
+rithm and the outsourced encryption and decryption compo-
+nents. Regarding the blockchain component, a multi-group,
+dual-node consortium blockchain system was built based on
+FISCO BCOS version 2.9.1. JavaSDK was employed to fa-
+cilitate interactions with smart contracts, which were written
+in Solidity version 0.5.0. All experiments related to attribute-
+based encryption were conducted in the local environment,
+while blockchain-related experiments were deployed on the
+cloud server. The compilation of all components relied on the
+OpenJDK v14.0.21 compiler.
+In the simulation of outsourced attribute-based encryp-
+tion and decryption, this paper emulates terminal devices
+in a local environment and conducts tests on both conven-
+tional ABE and outsourced ABE under identical conditions.
+To better approximate real-world scenarios, the simulation
+considers the possible number of attributes held by drones
+and GCSs. A set of attributes is randomly generated and
+assigned to drones and ground stations. Encryption and de-
+cryption operations are then performed on these attributes
+under consistent testing conditions, with the corresponding
+computation time and communication overhead recorded.
+For the smart contract simulation, the focus is on the
+number of concurrent access requests from drone nodes and
+the associated time consumption. To simulate concurrent
+access, a multithreaded approach is adopted in the cloud envi-
+ronment, where each thread represents a drone node accessing
+the smart contract. The number of simulated drones corre-
+sponds to the level of concurrency. By varying the number of
+concurrent threads, different levels of access concurrency are
+emulated. During the simulation, the time consumed by each
+access operation is recorded, and performance metrics such
+as average response time are calculated.
+6.2 Computational Resource Overhead of
+Outsourced Attribute-Based Encryption
+Outsourced attribute-based encryption is a critical cryp-
+tographic technique that enables fine-grained encryption
+and decryption of data, thereby enhancing information se-
+curity. To support attribute-based encryption on resource-
+constrained devices, the process involves multiple stages,
+including key generation, partial encryption, full encryption,
+partial decryption, and complete decryption —each of which
+incurs varying levels of computational resource consumption.
+Therefore, measuring and analyzing the computational re-
+source overhead associated with outsourced attribute-based
+encryption is essential for understanding its performance
+characteristics.
+To evaluate the key generation efficiency of outsourced
+attribute-based encryption, this paper conducts a detailed ex-
+perimental analysis of the KeyGen process, aiming to assess
+its computational resource consumption under varying user
+attribute set sizes. The experiment defines a universal attribute
+set U consisting of 100 elements and simulates a range of user
+scenarios with different attribute subsets S derived from this
+set. As illustrated in Figure 5, the horizontal axis represents
+the number of elements in the attribute subset S, increasing
+from 10 to the full set of 100. Correspondingly, the verti-
+cal axis quantifies the time required to execute the KeyGen
+operation as the size of S increases.
+Figure 5: Time cost of attribute-based outsourcing encryp-
+tion key generation.
+Experimental results indicate that in outsourced
+attribute-based encryption, the computational resources con-
+sumed during the KeyGen process exhibit a clear linear
+increase as the number of attributes in the user set S grows.
+This behavior stems from the nature of the encryption mech-
+anism, which requires a dedicated cryptographic computation
+for each attribute in the set. Each additional attribute necessi-
+tates an additional encryption operation. Thus, the size of the
+attribute set S directly determines the computational workload
+during key generation. While the time required for attribute-
+independent fixed operations remains relatively constant, the
+cumulative effect of increasing attributes leads to a linearly
+growing number of encryption computations, resulting in a
+linear increase in overall computation time. Therefore, the
+number of attributes held by a user is the primary factor
+influencing the efficiency of key generation in outsourced
+attribute-based encryption scenarios.
+To further investigate the computational time costs as-
+sociated with partial and full decryption operations in out-
+sourced attribute-based encryption, the experiment constructs
+a universal attribute set U as the basis and generates a series
+of access trees T containing varying numbers of attributes.
+This setup is designed to simulate different levels of encryp-
+tion and decryption complexity encountered in real-world
+applications. As illustrated in Figures 6 and 7, the horizontal
+
+50 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+axis represents the number of attributes contained within each
+access tree T , while the vertical axis records the execution
+time required for the corresponding encryption and decryp-
+tion tasks. These two figures clearly demonstrate the trend
+that, as the number of attributes in the access tree increases,
+the time required for encryption and decryption operations
+also changes accordingly.
+Figure 6: The time cost of attribute-based outsourcing en-
+cryption.
+Figure 7: The time cost of attribute-based outsourcing de-
+cryption.
+By comparing the two figures, it is evident that both
+attribute-based encryption and outsourced attribute-based en-
+cryption exhibit a synchronous increase in execution time
+as the number of processed attributes grows. Moreover, en-
+cryption operations consistently consume more time than de-
+cryption operations. This is primarily because the encryption
+process involves vector searches to determine valid combi-
+nations capable of reconstructing the secret value, whereas
+decryption merely requires using the corresponding private
+key as input for computation. As a result, the encryption phase
+is inherently more time-consuming.
+Moreover, a comparison of the time savings achieved
+through outsourced encryption and outsourced decryption re-
+veals that outsourcing encryption yields greater reductions
+in computational cost. Since decryption operations gener-
+ally require less time than encryption, they are more suitable
+for resource-constrained devices. Additionally, in the out-
+sourced attribute-based encryption scheme adopted in this
+study, MLE operations are incorporated to ensure verifiability,
+which further increases the time consumption of encryption
+on terminal devices. Therefore, in the data sharing scheme
+proposed in this paper, the encryption tasks originally per-
+formed on the terminal are offloaded to the edge-layer GCS,
+while decryption is retained on the drone side.
+In summary, whether performing outsourced attribute-
+based encryption and decryption or conventional attribute-
+based operations, the consumption of computational re-
+sources is directly and closely related to the number of
+involved attributes. As the number of attributes increases,
+the computational overhead for encryption and decryption
+grows linearly. Furthermore, the analysis of time consump-
+tion across different components confirms the rationality and
+effectiveness of the proposed method’s design.
+6.3 Smart Contract Performance Evaluation
+In the performance evaluation of smart contracts, this paper
+focuses on several key metrics, including concurrent exe-
+cution time, and gas consumption. It should be noted that
+gas consumption reflects the computational complexity and
+storage overhead of on-chain operations, the measured gas
+values capture the actual execution cost of the smart-contract
+functions.To ensure the accuracy of the analysis, a series of
+controlled and repeated tests are conducted under consistent
+experimental conditions to obtain reliable results.
+(1) Concurrent Execution Time
+Concurrent time consumption refers to the amount of
+time required by the system to handle multiple concur-
+rent tasks or requests. Concurrency involves competition and
+scheduling of system resources, as well as interactions among
+tasks or requests. Lower concurrent time consumption in-
+dicates that the system can manage concurrent tasks more
+efficiently, minimizing waiting times and resource contention
+among tasks.
+In the testing of the ACC SC contract, this paper first
+simulates transactions under varying loads to determine the
+maximum processing capacity of the smart contract. As
+shown in Figure 8, the time consumption of the contract ini-
+tially increases linearly with the load. After reaching a certain
+threshold, the growth rate begins to level off slightly.
+Based on the experimental results, it is observed that the
+ACC SC contract accounts for the majority of invocation op-
+erations in the total latency, thus playing a significant role in
+the overall performance evaluation. To assess the efficiency
+of the proposed method, a comparative experiment is con-
+ducted against the SMACS approach introduced by Liu et al.
+[18], which implements fine-grained access control via smart
+contracts on the Ethereum platform —a mechanism similar
+to the one adopted in this study. For a fair comparison, the
+SMACS contract was reproduced and deployed on the FISCO
+BCOS blockchain platform under identical testing conditions.
+The results show that when the number of concurrent in-
+vocations is below 20, SMACS exhibits better performance.
+However, as the concurrency level exceeds 20, the proposed
+method outperforms SMACS. These findings indicate that
+the proposed method achieves superior performance under
+high-concurrency scenarios.
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 51
+Figure 8: The time cost of ACC SC with changes in con-
+currency.
+Although SMACS offloads complex verification
+and management operations to off-chain infrastructure —
+implementing only token-based access control on-chain —
+token-based mechanisms can still introduce considerable
+overhead when the system experiences high concurrency. In
+application scenarios demanding high throughput, it is essen-
+tial to optimize contract design to reduce execution time and
+minimize network load. Therefore, smart contracts should
+be designed to eliminate redundant operations as much as
+possible to ensure high throughput and efficient execution.
+To evaluate the impact of increasing the number of at-
+tributes on the time consumption of smart contracts when
+processing 100 concurrent transactions, a series of simulation
+experiments were conducted. In these experiments, different
+sizes of attribute sets were employed, and the correspond-
+ing processing times were recorded. The experimental results
+are illustrated in Figure 9. According to the results, it can
+be observed that as the size of the attribute set increases, the
+processing time of the smart contract also exhibits a rising
+trend. This indicates that a greater number of attributes leads
+to increased execution time for the contract. Moreover, the
+growth in time consumption appears to be approximately lin-
+ear—each additional attribute results in a nearly proportional
+increase in processing time.
+Figure 9: The time cost of ACC SC with changes in the
+number of attribute sets.
+These findings offer important insights for the design
+and optimization of smart contracts. In practical develop-
+ment, the number of attributes used within a contract should
+be carefully considered to avoid excessive processing de-
+lays. Developers are advised to balance actual functional
+requirements with performance constraints, and to control the
+number of attributes accordingly in order to ensure efficient
+contract execution.
+Based on the above experimental results, the access con-
+trol penalty mechanism proposed in this study can effectively
+reduce the time consumption of smart contracts under certain
+conditions. In particular, when the system experiences high
+levels of concurrent operations or involves a large number of
+attributes, the penalty mechanism significantly enhances the
+execution efficiency of smart contracts.
+The results of the concurrent invocation test for the
+V ER SC contract are shown in Figure 10. As the system
+load increases, the overall concurrent time consumption of the
+V ER SC contract also increases, accompanied by noticeable
+fluctuations in latency. TheV ER SC contract performs opera-
+tions such as computing the bitwise XOR of input parameters
+and comparing the result with a given input to determine
+equality. During concurrent testing, multiple users simulta-
+neously send requests to the contract and execute the same
+operations, which requires the contract to handle multiple
+concurrent requests in real time. Consequently, the con-
+tract’s concurrent performance becomes a critical metric in
+evaluating its ability to manage high-concurrency scenarios.
+Figure 10: The time cost variation of VER SC with con-
+currency changes.
+The observed performance variability may stem from re-
+source contention within the contract. When multiple requests
+access shared components of the contract simultaneously
+—such as reading or writing shared variables or accessing
+on-chain storage — resource contention can occur. Another
+contributing factor is the indeterminacy of the scheduling
+algorithm in the underlying system. The contract’s concur-
+rent performance is influenced by the blockchain platform ’
+s scheduling policies. Imbalances in load distribution or task
+prioritization may lead to uneven execution sequences and
+time slice allocation across requests, thereby resulting in
+fluctuating concurrency performance.
+(2) Gas Consumption
+Gas consumption is a key metric for evaluating the eco-
+nomic efficiency of smart contracts, representing the cost
+required to execute contract operations. On blockchain plat-
+forms such as Ethereum and FISCO BCOS, each operation
+incurs a specific Gas cost, meaning that Gas consumption di-
+rectly affects the overall cost for users interacting with smart
+
+52 Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53
+contracts. In this paper, we conducted Gas consumption tests
+for various smart contract operations. Table 2 presents the cor-
+responding function calls for each operation and the amount
+of Gas consumed.
+Table 2: The gas consumption of smart contract functions
+Operation Function Call Gas
+consumption
+ACC SC contract
+deployment ACC SC.Deploy 636425
+View
+account status ACC SC.Punishment 31413
+Attribute
+policy matching ACC SC.ArrPolicyVerify 92005
+V ER SC contract
+deployment V ER SC.Deploy 127609
+Consistency
+verification V ER SC.ConformVerify 37082
+This paper conducted individual tests for each func-
+tion within the smart contracts to quantify their average gas
+consumption. The experimental results were obtained using
+Remix, with Solidity version 0.5.0. The test results indicate
+that computationally intensive or storage-related operations
+significantly increase gas costs. For instance, operations such
+as contract deployment and attribute policy matching require
+modifications to the data stored on the blockchain, incurring
+both execution gas and storage gas costs. In this experi-
+ment, the deployment of the ACC SC contract consumed
+636,425 gas, while the deployment of the V ER SC contract
+consumed 127,609 gas. Contract deployment involves com-
+piling and storing the contract code, thus requiring substantial
+computational resources and gas consumption.
+Gas consumption varies across different opera-
+tions. For example, the operation to view account status
+ACC SC.Punishment consumed 31,413 gas, whereas the
+consistency verification operation V ER SC.Con f ormVeri f y
+consumed 37,082 gas. These differences arise from the vary-
+ing computational complexity and data access demands of
+each operation. Notably, the attribute policy matching opera-
+tion ACC SC.ArrPolicyVeri f y incurred a relatively high gas
+cost of 92,005. This is because the operation involves vali-
+dating and matching attribute policies, which entails complex
+computations and data comparisons, thereby consuming more
+computational resources and gas.
+7 Conclusion
+This paper addresses the problem of end-to-end secure data
+sharing in a drone-centric cloud–edge–device collaborative
+environment. By integrating blockchain technology with out-
+sourced attribute-based encryption approach, an efficient and
+secure data sharing method tailored to resource-constrained
+environments is proposed. To tackle typical challenges such
+as limited computational capabilities of terminal devices,
+highly dynamic network topologies, and untrusted commu-
+nication channels, the proposed method employs outsourced
+ABE to protect data confidentiality. The encryption transfor-
+mation and decryption operations are offloaded to edge nodes
+and cloud servers, thereby effectively reducing the compu-
+tational burden on terminals and minimizing system latency.
+Smart contracts are employed to dynamically enforce access
+control policies and to verify the consistency of outsourced
+encryption results, ensuring both flexibility and correctness in
+access control. Finally, the proposed method is theoretically
+analyzed and experimentally evaluated in terms of security
+and system performance. The results demonstrate that the
+proposed method not only guarantees data confidentiality and
+integrity but also achieves high computational efficiency and
+practical deployability.
+Funding
+This work is supported by the Open Research Projects of the
+Key Laboratory of Blockchain Technology and Data Security
+of the Ministry of Industry and Information Technology for
+the year 2025 under Grant KT20250009, 2025 Key Research
+Project of China Railway Information Technology Group Co.,
+Ltd under Grant WJZG-CKY-2025014(2025N01).
+Author Contributions
+Wen Zhang completed the experimental design and wrote the
+paper. Pengrui Chen assisted in completing the experiments.
+Li Duan provided methodological ideas. Yimeng Feng and
+Lufeng Feng proposed changes to the paper as a whole. All
+authors have read and agreed to the published version of the
+manuscript.
+Conflict of Interest
+All the authors declare that they have no conflict of interest.
+References
+[1] Muchiri, G.N., Kimathi, S.: A review of applications
+and potential applications of UA V . In Proceedings of
+the 2016 Sustainable Research & Innovation (SRI)
+Conference, pp. 280-283 (2022)
+[2] Poorvi, J., Kalita, A., Gurusamy, M.: Reliable and
+efficient data collection in uav based iot networks.
+IEEE Communications Surveys & Tutorials (2025).
+https://doi.org/10.1109/COMST.2025.3550274
+[3] Kumar, J., Kumar, M., Pandey, D.K., Raj, R.: En-
+cryption and authentication of data using the IPSEC
+protocol. In Proceedings of the Fourth International
+Conference on Microelectronics, Computing and
+Communication Systems, pp. 855-862 (2020). https:
+//doi.org/10.1007/978-981-15-5546-6 71
+[4] Reimers, E.: On the security of TLS and IPsec: Miti-
+gation through physical constraints. Bachelor Thesis,
+Link¨oping University (2015)
+[5] Xia, T., Wang, M., He, J., Lin, S., Shi, Y ., Guo, L.:
+Research on identity authentication scheme for uav
+
+Zhang et al. / J. Intell. Comput. Netw. 2025 1(2):40–53 53
+communication network. Electronics 12(13), 2917
+(2023). https://doi.org/10.3390/electronics12132917
+[6] Makhdoom, I., Abolhasan, M., Abbas, H., Ni, W.:
+Blockchain’s adoption in IoT: The challenges, and
+a way forward. Journal of Network and Computer
+Applications 125, 251-279 (2019). https://doi.org/10.
+1016/j.jnca.2018.10.019
+[7] Jiang, Y ., Ma, B., Wang, X., Yu, G., Yu, P., Wang,
+Z., Ni, W., Liu, R.P.: Blockchained federated learn-
+ing for internet of things: A comprehensive survey.
+ACM Computing Surveys 56(10), 1-37(2024). https:
+//doi.org/10.1145/3659099
+[8] Ramos, S., Cruz, T., Sim ˜oes, P.: Security and safety
+of unmanned air vehicles: An overview. In ECCWS
+2021 20th European Conference on Cyber Warfare
+and Security, pp. 357-368 (2021)
+[9] Japp, W., Lee, V ., Vagicherla, S.A., Rubio-Medrano,
+C.: Fly-ABAC: Attribute Based Access Control for
+the Navigation of Unmanned Aerial Vehicles. In
+2024 IEEE International Conference on Big Data
+(BigData), pp. 7471-7476 (2024). https://doi.org/10.
+1109/BigData62323.2024.10825924
+[10] Jeong, H.J., Ha, Y .G.: RBAC-Based UA V Control
+System for Multiple Operator Environments. In the
+proceedings of the 2012 International Conference on
+Advanced Software Engineering and Its Applications
+(ASEA 2012) and the 2012 International Confer-
+ence on Disaster Recovery and Business Continuity
+(DRBC 2012), pp. 210-217 (2012). https://doi.org/
+10.1007/978-3-642-35267-6 27
+[11] Pang, Y ., Chen, Z.: Security Scheme of UA V Flight
+Control Based on Attribute-Based Access Control
+Policy. Computer Science 51(4), 366–372 (2024).
+https://doi.org/10.11896/jsjkx.230200135
+[12] Sahai, A., Waters, B.: Fuzzy identity-based encryp-
+tion. In Annual international conference on the the-
+ory and applications of cryptographic techniques, pp.
+457-473 (2005). https://doi.org/10.1007/11426639
+27
+[13] Liu, Q., Wang, Z., Yu, C., Wang, Z.: Effi-
+cient Attribute-Based Encryption Scheme from
+Lattices for Cloud Security. Netinfo Security,
+23(09), 25–36 (2023). https://doi.org/10.3969/j.issn.
+1671-1122.2023.09.003
+[14] Ge, C., Susilo, W., Baek, J., Liu, Z., Xia, J., Fang,
+L.: A verifiable and fair attribute-based proxy re-
+encryption scheme for data sharing in clouds. IEEE
+Transactions on Dependable and Secure Comput-
+ing 19(5), 2907-2919 (2021). https://doi.org/10.
+1109/TDSC.2021.3076580
+[15] Sun, J., Xu, G., Zhang, T., Yang, X., Alazab, M.,
+Deng, R.H.: Verifiable, fair and privacy-preserving
+broadcast authorization for flexible data sharing in
+clouds. IEEE Transactions on Information Forensics
+and Security 18, 683-698 (2022). https://doi.org/10.
+1109/TIFS.2022.3226577
+[16] Zhou, Z., Wan, Y ., Cui, Q., Yu, K., Mumtaz, S., Yang,
+C. N., Guizani, M.: Blockchain-based secure and
+efficient secret image sharing with outsourcing com-
+putation in wireless networks. IEEE Transactions on
+Wireless Communications 23(1), 423-435 (2023).
+https://doi.org/10.1109/TWC.2023.3278108
+[17] Saini, A., Zhu, Q., Singh, N., Xiang, Y ., Gao, L.,
+Zhang, Y .: A smart-contract-based access control
+framework for cloud smart healthcare system. IEEE
+Internet of Things Journal 8(7), 5914-5925 (2021).
+https://doi.org/10.1109/JIOT.2020.3032997
+[18] Liu, B., Sun, S., Szalachowski, P.: Smacs: smart con-
+tract access control service. In 2020 50th Annual
+IEEE/IFIP International Conference on Dependable
+Systems and Networks (DSN), pp. 221-232 (2020).
+https://doi.org/10.1109/DSN48063.2020.00039
+[19] Feng, C., Yu, K., Bashir, A.K., Al-Otaibi, Y .D., Lu,
+Y ., Chen, S.: Efficient and secure data sharing for 5G
+flying drones: A blockchain-enabled approach. IEEE
+Network 35(1), 130-137 (2021). https://doi.org/10.
+1109/MNET.011.2000223
+[20] Bera, B., Saha, S., Das, A.K., Kumar, N., Lorenz,
+P., Alazab, M.: Blockchain-envisioned secure data
+delivery and collection scheme for 5g-based iot-
+enabled internet of drones environment. IEEE Trans-
+actions on Vehicular Technology 69(8), 9097-9111
+(2020). https://doi.org/10.1109/TVT.2020.3000576
+[21] Mandal, S., Bera, B., Sutrala, A.K., Das, A.K.,
+Choo, K.R., Park, Y .: Certificateless-signcryption-
+based three-factor user access control scheme for
+IoT environment. IEEE Internet of Things Jour-
+nal 7(4), 3184-3197 (2020). https://doi.org/10.1109/
+JIOT.2020.2966242
+[22] Mandinyenya, G., Malele, V .: Formal Ver-
+ification of a Blockchain-Based Security
+Model for Personal Data Sharing Using the
+Dolev-Yao Model and ProVerif. Interna-
+tional Journal of Advanced Computer Science
+& Applications, 16(9), 444-456 (2025).
+https://dx.doi.org/10.14569/IJACSA.2025.0160942
+[23] Zhang, J.: Research on Blockchain-Based Secure
+Data Sharing Scheme in Cloud-Edge-End Collabo-
+ration. Master’s Thesis, Beijing Jiaotong University
+(2024)
