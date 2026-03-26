@@ -1,0 +1,13 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "accsc": "0xf2797C505Bf799b2eD59607a728DcAcA2D3519d0",
+  "versc": "0x9192f69Ef4B99FD5b6D47594dF2a96961C4dBb81",
+  "phi": "0x18f45d9b880c37eb8b2434c9e82f3d5e5ab3bad14931640ffbcf78d431faf9af",
+  "varphi": "0x461571511f3e3bfe5af768105f114e5fd3e3a304da31b75ea41e768bc70b25dc",
+  "tx": {
+    "deployAccsc": "55b3b8c344d6db6cc3266884f67389661719f8d300a4aeee571c5d19ab4124e8",
+    "deployVersc": "74190ca44fa03a2a9bbd74ab4245d5df58a94e5b0a4add1ea7216eb922a15393"
+  }
+}
