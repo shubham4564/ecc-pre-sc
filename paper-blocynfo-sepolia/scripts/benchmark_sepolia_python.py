@@ -114,8 +114,9 @@ def main() -> None:
         rows.append((i, "hashCTI", int(rcpt["gasUsed"]), ms, rcpt["transactionHash"].hex()))
         nonce += 1
 
-        rk_hash = derive_rekey_hash(cfg["private_key"], qpk, p_hash)
-        rk_blob = derive_rekey_blob(cfg["private_key"], qpk, p_hash)
+        cti_id_hex = Web3.to_hex(cti_id)
+        rk_hash = derive_rekey_hash(cfg["private_key"], qpk, p_hash, cti_id_hex, account.address)
+        rk_blob = derive_rekey_blob(cfg["private_key"], qpk, p_hash, cti_id_hex, account.address)
         tx = c.functions.storeReKey(cti_id, account.address, rk_hash, rk_blob).build_transaction(
             {"from": account.address, "nonce": nonce, "gas": 300000, "gasPrice": gp, "chainId": cfg["chain_id"]}
         )

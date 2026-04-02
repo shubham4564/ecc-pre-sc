@@ -19,8 +19,9 @@ The implementation follows the paper's smart-contract-facing API and algorithm f
 On-chain:
 
 - Authorized-user and label membership checks using Bloom filters
+- Label-owner scoped access control (`grantLabelAccess` / `revokeLabelAccess`)
 - LEDD mapping for label to encrypted payload metadata
-- Token/version/count state used for query authentication semantics
+- Token/version/count state enforced by search-time token validation
 - Search result generation with obfuscation outputs and audit events
 
 Off-chain:
@@ -83,7 +84,7 @@ This runs:
 1. user authorization (if query key provided)
 2. label generation for encrypted data pointer
 3. token generation
-4. searchable query with obfuscated result set
+4. searchable query with token-validated, owner-scoped access check
 5. label update
 
 ## Benchmark
@@ -109,6 +110,8 @@ Covered scenarios:
 
 - authorization/revocation behavior
 - label/token/search happy path
+- label-level sharing scope (authorized-but-not-granted users are denied)
+- invalid token rejection for search
 - unauthorized write rejection
 - ciphertext update behavior through `updateLabel`
 

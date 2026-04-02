@@ -132,6 +132,7 @@ def main() -> None:
         t0 = now_ms()
         rcpt = execute_fn(w3, contract.functions.generateToken(label), query_pk, cfg["chain_id"])
         t1 = now_ms()
+        token_value = contract.functions.tokens(label).call()[2]
         detail_rows.append(
             {
                 "operation": "generateToken",
@@ -143,7 +144,7 @@ def main() -> None:
         )
 
         t0 = now_ms()
-        rcpt = execute_fn(w3, contract.functions.search(label), query_pk, cfg["chain_id"])
+        rcpt = execute_fn(w3, contract.functions.search(label, token_value), query_pk, cfg["chain_id"])
         t1 = now_ms()
         detail_rows.append(
             {

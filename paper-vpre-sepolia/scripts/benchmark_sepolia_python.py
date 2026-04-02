@@ -86,8 +86,8 @@ def run_iteration(w3: Web3, cfg: Dict[str, Any], abis: Dict[str, Any], addrs: Di
     nonce += 1
 
     sk_e = key_gen()["sk"]
-    rk_out = compute_rk(ds["sk"], db["pk"], sk_e)
-    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"])
+    rk_out = compute_rk(ds["sk"], db["pk"], sk_e, uid)
+    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"], uid)
 
     tx = tr.functions.submitCmit(uid, ds["pk"], db["pk"], rk_out["pk_e"], rk_out["cmit"]).build_transaction(
         build_tx({"from": account.address, "chainId": cfg["chain_id"]}, nonce, 350_000, gas_price)

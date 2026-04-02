@@ -7,6 +7,7 @@ contract SENSHSearchableEncryption {
     struct EncryptedData {
         bytes32 label;
         bytes32 encryptedValue;
+        address ownerOfLabel;
         bool exists;
         uint256 timestamp;
     }
@@ -31,11 +32,14 @@ contract SENSHSearchableEncryption {
     mapping(address => bool) public isAuthorized;
     mapping(bytes32 => EncryptedData) public LEDD;
     mapping(bytes32 => TokenInfo) public tokens;
+    mapping(bytes32 => mapping(address => bool)) public labelAccess;
 
     event UserAuthorized(address indexed user);
     event UserRevoked(address indexed user);
     event LabelGenerated(bytes32 indexed label, bytes32 encryptedValue);
     event LabelUpdated(bytes32 indexed label, bytes32 encryptedValue);
+    event LabelAccessGranted(bytes32 indexed label, address indexed grantee);
+    event LabelAccessRevoked(bytes32 indexed label, address indexed grantee);
     event TokenGenerated(bytes32 indexed label, bytes32 tokenValue, uint256 version, uint256 count);
     event SearchExecuted(bytes32 indexed label, address indexed requester, bytes32 encryptedValue);
 
@@ -128,16 +132,34 @@ contract SENSHSearchableEncryption {
         LEDD[label] = EncryptedData({
             label: label,
             encryptedValue: REndata,
+            ownerOfLabel: msg.sender,
             exists: true,
             timestamp: block.timestamp
         });
+        labelAccess[label][msg.sender] = true;
 
         emit LabelGenerated(label, REndata);
         return label;
     }
 
+    function grantLabelAccess(bytes32 label, address grantee) external onlyAuthorized {
+        require(LEDD[label].exists, "Label missing");
+        require(LEDD[label].ownerOfLabel == msg.sender, "Not label owner");
+        require(isAuthorized[grantee], "Grantee unauthorized");
+        labelAccess[label][grantee] = true;
+        emit LabelAccessGranted(label, grantee);
+    }
+
+    function revokeLabelAccess(bytes32 label, address grantee) external onlyAuthorized {
+        require(LEDD[label].exists, "Label missing");
+        require(LEDD[label].ownerOfLabel == msg.sender, "Not label owner");
+        labelAccess[label][grantee] = false;
+        emit LabelAccessRevoked(label, grantee);
+    }
+
     function updateLabel(bytes32 label, bytes32 newEncryptedValue) external onlyAuthorized {
         require(LEDD[label].exists, "Label missing");
+        require(LEDD[label].ownerOfLabel == msg.sender, "Not label owner");
         LEDD[label].encryptedValue = newEncryptedValue;
         LEDD[label].timestamp = block.timestamp;
         emit LabelUpdated(label, newEncryptedValue);
@@ -145,6 +167,7 @@ contract SENSHSearchableEncryption {
 
     function generateToken(bytes32 label) external onlyAuthorized returns (bytes32) {
         require(LEDD[label].exists, "Label missing");
+        require(labelAccess[label][msg.sender], "No label access");
 
         TokenInfo storage token = tokens[label];
         token.count += 1;
@@ -157,8 +180,15 @@ contract SENSHSearchableEncryption {
         return token.tokenValue;
     }
 
-    function search(bytes32 label) external onlyAuthorized returns (bytes32[] memory results, bytes32 matchedCiphertext) {
+    function search(bytes32 label, bytes32 tokenValue)
+        external
+        onlyAuthorized
+        returns (bytes32[] memory results, bytes32 matchedCiphertext)
+    {
         require(labelsFilter.exists(label), "Label absent in filter");
+        require(labelAccess[label][msg.sender], "No label access");
+        require(tokens[label].tokenValue != bytes32(0), "Token missing");
+        require(tokens[label].tokenValue == tokenValue, "Invalid token");
 
         results = new bytes32[](obfuscationFactor);
         results[0] = LEDD[label].exists ? label : bytes32(0);

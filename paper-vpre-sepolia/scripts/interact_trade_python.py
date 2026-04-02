@@ -82,8 +82,8 @@ def main():
     print("deposit:", Web3.to_hex(rcpt["transactionHash"]))
     nonce += 1
 
-    rk_out = compute_rk(ds["sk"], db["pk"], sk_e)
-    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"])
+    rk_out = compute_rk(ds["sk"], db["pk"], sk_e, uid)
+    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"], uid)
 
     tx = tr.functions.submitCmit(uid, ds["pk"], db["pk"], rk_out["pk_e"], rk_out["cmit"]).build_transaction(
         {"from": account.address, "nonce": nonce, "gas": 350_000, "gasPrice": gas_price, "chainId": cfg["chain_id"]}

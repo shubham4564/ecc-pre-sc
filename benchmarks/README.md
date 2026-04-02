@@ -78,3 +78,43 @@ Processes timed:
 - Keep RPC/provider and environment stable during testing for comparable results.
 - Use larger N (e.g., 50–200) for smoother statistics.
 - Record your host machine specs alongside the CSVs.
+
+## Paper comparison scorecard
+Build a multi-metric comparison report (efficiency + conformance + robustness) across paper tracks and your baseline:
+
+```
+python benchmarks/build_superiority_report.py
+```
+
+Inputs:
+- `benchmarks/all_impl_comparison_gas_time.csv`
+- `benchmarks/paper_methodology_conformance.json`
+- detail CSVs from each paper benchmark and `benchmarks/reencrypt_bench.csv`
+
+Outputs:
+- `benchmarks/superiority_scorecard.csv`
+- `benchmarks/superiority_scorecard.md`
+
+Scoring model used by default:
+- `overall = 0.25 * efficiency + 0.45 * conformance + 0.30 * robustness`
+- Efficiency is lower-is-better normalized gas and latency.
+- Robustness is lower variability (coefficient of variation) in gas/latency samples.
+
+For strict publication use, tune weights and add domain-specific security metrics before final claims.
+
+## Statistical significance report
+Build confidence intervals and pairwise significance tests against the baseline:
+
+```
+python benchmarks/build_statistical_significance_report.py
+```
+
+Outputs:
+- `benchmarks/statistical_summary.csv`
+- `benchmarks/pairwise_significance_vs_existing.csv`
+- `benchmarks/statistical_significance_report.md`
+
+Methods used:
+- Bootstrap 95% confidence intervals for mean gas and mean latency.
+- Two-sided Mann-Whitney U tests vs `existing_ecc_pre`.
+- Cliff's delta effect sizes for gas and latency.

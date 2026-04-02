@@ -46,6 +46,8 @@ copy .env.example .env
 python scripts/vpre_offchain_demo.py
 ```
 
+This script now acts as a conformance gate and exits with failure if `cmit(rk)` and `cmit(vk)` diverge.
+
 ## Deploy to Sepolia
 
 1. Fill `.env` values:
@@ -111,6 +113,7 @@ Output:
 To keep the prototype deployable and benchmark-friendly on Sepolia:
 
 - On-chain verification uses finite-field modular exponentiation (`modexp` precompile) for `g^rk` and `vk` commitment checks.
+- Off-chain `rk`/`vk` derivation is context-bound with `uid` to prevent cross-trade reuse.
 - Full PRE ciphertext transformation (`rEnc`) remains off-chain.
 - Product file storage and retrieval (`DOS`) are represented by `dataAddress` (e.g., IPFS URI).
 - Public keys for `DS`/`DB` are stored as scalar-compatible values needed by off-chain VPRE helper flow.

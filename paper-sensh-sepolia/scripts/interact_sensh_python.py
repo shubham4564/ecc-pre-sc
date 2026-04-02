@@ -54,9 +54,10 @@ def main() -> None:
 
     rcpt = execute_fn(w3, contract.functions.generateToken(label), query_pk, cfg["chain_id"])
     tx_map["generateToken"] = rcpt["transactionHash"].hex()
+    token_value = contract.functions.tokens(label).call()[2]
 
-    results, matched = contract.functions.search(label).call({"from": query_acct.address})
-    rcpt = execute_fn(w3, contract.functions.search(label), query_pk, cfg["chain_id"])
+    results, matched = contract.functions.search(label, token_value).call({"from": query_acct.address})
+    rcpt = execute_fn(w3, contract.functions.search(label, token_value), query_pk, cfg["chain_id"])
     tx_map["search"] = rcpt["transactionHash"].hex()
 
     new_val = Web3.keccak(text="reencrypted-value-v2")

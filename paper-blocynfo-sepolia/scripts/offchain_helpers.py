@@ -20,11 +20,28 @@ def cti_hash(ciphertext: bytes) -> str:
     return Web3.to_hex(Web3.keccak(ciphertext))
 
 
-def derive_rekey_hash(owner_sk_hex: str, query_pk_int: int, policy_hash_hex: str) -> str:
-    material = f"{owner_sk_hex.lower()}|{query_pk_int}|{policy_hash_hex.lower()}".encode("utf-8")
+def derive_rekey_hash(
+    owner_sk_hex: str,
+    query_pk_int: int,
+    policy_hash_hex: str,
+    cti_id_hex: str,
+    query_org_addr: str,
+) -> str:
+    material = (
+        f"{owner_sk_hex.lower()}|{query_pk_int}|{policy_hash_hex.lower()}|"
+        f"{cti_id_hex.lower()}|{query_org_addr.lower()}"
+    ).encode("utf-8")
     return "0x" + sha256(material).hexdigest()
 
 
-def derive_rekey_blob(owner_sk_hex: str, query_pk_int: int, policy_hash_hex: str) -> bytes:
+def derive_rekey_blob(
+    owner_sk_hex: str,
+    query_pk_int: int,
+    policy_hash_hex: str,
+    cti_id_hex: str,
+    query_org_addr: str,
+) -> bytes:
     # Placeholder blob for benchmark-friendly prototype; actual CP-ABPRE payload remains off-chain.
-    return f"rk:{derive_rekey_hash(owner_sk_hex, query_pk_int, policy_hash_hex)}".encode("utf-8")
+    return (
+        f"rk:{derive_rekey_hash(owner_sk_hex, query_pk_int, policy_hash_hex, cti_id_hex, query_org_addr)}"
+    ).encode("utf-8")

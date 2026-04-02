@@ -1,0 +1,18 @@
+{
+  "contract": "0xD246E4b21A6b57B60E17fC56d93E8a8b9F9337A4",
+  "owner": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "device": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "ownerPseudo": "e366e07c26e6f864468aae91eeea6872afebdcfb020c6cefbeaf75030122c0c9",
+  "devicePseudo": "95741fa06b8ef1b2770831567b9f115e82aad036cfb30af5a19667a3be5a4ea0",
+  "dataId": "914e67e6ab8f38fb62c8a87a9fc1187a23f6e7b71423195ec116e26e48b8be7c",
+  "requestId": "32149c058e1ebddd5fac90c2d28497e2378641923b4a9fd567d66bce15b43a3b",
+  "verifyAccess": true,
+  "tx": {
+    "registerOwner": "4a508b7fbc159712f453cac07e528fdc450416c800dd900d1841784dfeca613c",
+    "registerDevice": "3db4079b1110135635acfafbab75b16da8ace232fc61b19b447c1cf7e8d819fd",
+    "authorizeData": "01d2951d2d1e9b0a2257e0f3d851a5a14ef18ef75e973eb384285b55bd15e912",
+    "submitReKey": "bc08c2f2bc5f906fb64dc6addc45b24ccefab69620054f7ed285cc0d36628cf1",
+    "requestReEncryption": "513ab9e38f8539cbba15c9e4f7a0c22107690059ea2469e401a5012607a9aba0",
+    "approveReEncryption": "7140d4f78d664a87ad9f229afe0be4558f23ce4d321f5abfbbcb52f63ac7f0b7"
+  }
+}

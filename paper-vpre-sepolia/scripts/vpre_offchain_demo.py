@@ -6,8 +6,9 @@ def main() -> None:
     db = key_gen()
     sk_e = key_gen()["sk"]
 
-    rk_out = compute_rk(ds["sk"], db["pk"], sk_e)
-    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"])
+    uid = 1
+    rk_out = compute_rk(ds["sk"], db["pk"], sk_e, uid)
+    vk_out = compute_vk(ds["pk"], db["pk"], db["sk"], rk_out["pk_e"], uid)
 
     print("=== Off-chain VPRE demo (Python) ===")
     print("DS pk:", ds["pk"])
@@ -18,7 +19,10 @@ def main() -> None:
     print("vk:", vk_out["vk"])
     print("cmit from rk:", rk_out["cmit"])
     print("cmit from vk:", vk_out["vk_cmit"])
-    print("commitment match:", rk_out["cmit"].lower() == vk_out["vk_cmit"].lower())
+    match = rk_out["cmit"].lower() == vk_out["vk_cmit"].lower()
+    print("commitment match:", match)
+    if not match:
+        raise RuntimeError("VPRE commitment mismatch")
 
 
 if __name__ == "__main__":

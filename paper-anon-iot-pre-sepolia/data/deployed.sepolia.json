@@ -1,0 +1,8 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xD5a5a50c6f3A38FCE0674554D32381ad85e7CbC7",
+  "iotAnonymousPre": "0xD246E4b21A6b57B60E17fC56d93E8a8b9F9337A4",
+  "deployTxHash": "0cd5f5e171990f8ae55897f0255fd77695a792be42fecaae243d55e8ba40116c",
+  "deployGasUsed": 940491
+}

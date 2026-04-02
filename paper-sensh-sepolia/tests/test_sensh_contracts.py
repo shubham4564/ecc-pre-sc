@@ -101,13 +101,33 @@ def test_generate_label_token_search(deployed_contract):
 
     c.functions.generateLabel(key_material, endata, reenc).transact(_tx_opts(user))
     c.functions.generateToken(label).transact(_tx_opts(user))
+    token_value = c.functions.tokens(label).call()[2]
 
-    _, matched = c.functions.search(label).call({"from": user})
+    _, matched = c.functions.search(label, token_value).call({"from": user})
     assert matched == reenc
 
-    tx_hash = c.functions.search(label).transact(_tx_opts(user))
+    tx_hash = c.functions.search(label, token_value).transact(_tx_opts(user))
     rcpt = w3.eth.wait_for_transaction_receipt(tx_hash)
     assert rcpt.status == 1
+
+
+def test_search_rejects_invalid_token(deployed_contract):
+    w3, c, owner, user, _ = deployed_contract
+
+    c.functions.authorizeUser(user).transact(_tx_opts(owner))
+
+    key_material = "hospital-key"
+    endata = "patient:token:invalid"
+    reenc = Web3.keccak(text="renc-invalid")
+    label = _compute_label(key_material, endata)
+
+    c.functions.generateLabel(key_material, endata, reenc).transact(_tx_opts(user))
+    c.functions.generateToken(label).transact(_tx_opts(user))
+
+    bad_token = Web3.keccak(text="bad-token")
+    tx_hash = c.functions.search(label, bad_token).transact(_tx_opts(user))
+    rcpt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    assert rcpt.status == 0
 
 
 def test_unauthorized_user_cannot_modify(deployed_contract):
@@ -133,5 +153,34 @@ def test_update_label_changes_ciphertext(deployed_contract):
     c.functions.generateLabel(key_material, endata, v1).transact(_tx_opts(user))
     c.functions.updateLabel(label, v2).transact(_tx_opts(user))
 
-    _, matched = c.functions.search(label).call({"from": user})
+    c.functions.generateToken(label).transact(_tx_opts(user))
+    token_value = c.functions.tokens(label).call()[2]
+
+    _, matched = c.functions.search(label, token_value).call({"from": user})
     assert matched == v2
+
+
+def test_authorized_user_needs_label_access_for_token_and_search(deployed_contract):
+    w3, c, owner, user, outsider = deployed_contract
+
+    c.functions.authorizeUser(user).transact(_tx_opts(owner))
+    c.functions.authorizeUser(outsider).transact(_tx_opts(owner))
+
+    key_material = "hospital-key"
+    endata = "patient:share:scope"
+    reenc = Web3.keccak(text="enc-shared")
+    label = _compute_label(key_material, endata)
+
+    c.functions.generateLabel(key_material, endata, reenc).transact(_tx_opts(user))
+
+    # Another globally authorized user cannot access label before explicit grant.
+    tx_hash = c.functions.generateToken(label).transact(_tx_opts(outsider))
+    rcpt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    assert rcpt.status == 0
+
+    c.functions.grantLabelAccess(label, outsider).transact(_tx_opts(user))
+    c.functions.generateToken(label).transact(_tx_opts(outsider))
+    token_value = c.functions.tokens(label).call()[2]
+
+    _, matched = c.functions.search(label, token_value).call({"from": outsider})
+    assert matched == reenc

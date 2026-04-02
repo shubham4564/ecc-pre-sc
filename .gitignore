@@ -81,6 +81,33 @@ desktop.ini
 *.log
 logs/
 
+# Debug artifacts
+debug/
+debug_logs/
+*.debug
+*.trace
+*.dump
+
+# Generated output data (benchmark/report artifacts)
+benchmarks/figures/
+benchmarks/*_bench.csv
+benchmarks/all_impl_comparison_gas_time.csv
+benchmarks/existing_ecc_pre_summary.csv
+benchmarks/pairwise_significance_vs_existing.csv
+benchmarks/paper_methodology_conformance.csv
+benchmarks/paper_methodology_conformance.json
+benchmarks/statistical_summary.csv
+benchmarks/statistical_significance_report.md
+benchmarks/superiority_scorecard.csv
+benchmarks/superiority_scorecard.md
+
+# Subproject output/debug artifacts
+paper-*/benchmarks/*_detail.csv
+paper-*/benchmarks/*_summary.csv
+paper-*/benchmarks/comparison_*.csv
+paper-*/debug*.txt
+paper-sensh-sepolia/d.txt
+
 # Solidity / Hardhat / Truffle build artifacts (if regenerated)
 # artifacts/
 # cache/

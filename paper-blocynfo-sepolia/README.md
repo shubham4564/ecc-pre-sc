@@ -32,6 +32,7 @@ Off-chain:
 - Proxy re-encryption transform math
 - Attribute issuance by external credential authorities
 - Ciphertext storage backend (e.g., cloud/IPFS)
+- Rekey helper derivation context-binding (`owner`, `policy`, `ctiId`, `queryOrg`) for non-reusable prototype artifacts
 
 ## Project Structure
 
@@ -127,3 +128,4 @@ Covered scenarios:
 - The paper omits full Solidity-level CP-ABE/PRE implementation details.
 - This prototype keeps expensive cryptographic transforms off-chain and anchors verifiable hashes on-chain.
 - `offchain_helpers.py` provides deterministic prototype rekey derivation for benchmarking only; replace with full cryptographic stack for production.
+- Current prototype rekey hash/blob derivation includes `ctiId` and `queryOrg` context to avoid cross-context reuse during tests and benchmarks.

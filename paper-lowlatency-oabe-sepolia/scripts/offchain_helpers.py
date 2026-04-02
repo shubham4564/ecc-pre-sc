@@ -1,6 +1,8 @@
 from hashlib import sha256
 from typing import List, Tuple
 
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
 from web3 import Web3
 
 
@@ -28,14 +30,27 @@ def build_policy_vector(attr_count: int, required_indices: List[int]) -> List[in
 
 
 def pseudo_aes_encrypt(message: bytes, k: bytes) -> bytes:
-    stream = sha256(k + b"|aes-stream").digest()
-    block = (stream * ((len(message) // len(stream)) + 1))[: len(message)]
-    return bytes(m ^ b for m, b in zip(message, block))
+    key = sha256(k + b"|aes-gcm-key").digest()
+    nonce = get_random_bytes(12)
+    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    ciphertext, tag = cipher.encrypt_and_digest(message)
+    return nonce + tag + ciphertext
+
+
+def pseudo_aes_decrypt(blob: bytes, k: bytes) -> bytes:
+    if len(blob) < 28:
+        raise ValueError("cipher blob too short")
+    key = sha256(k + b"|aes-gcm-key").digest()
+    nonce = blob[:12]
+    tag = blob[12:28]
+    ciphertext = blob[28:]
+    cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+    return cipher.decrypt_and_verify(ciphertext, tag)
 
 
 def pseudo_mle_encrypt(message: bytes, sigma: bytes, phi: bytes, varphi: bytes) -> Tuple[bytes, bytes, bytes, bytes, bytes]:
     r = sha256(message + b"|" + sigma).digest()
-    cmle = xor32(sha256(message).digest(), sha256(sigma).digest())
+    cmle = pseudo_aes_encrypt(message, sigma)
     r_code = sha256(b"R|" + sigma).digest()
     h2m = h2_bytes(message)
     h2r = h2_bytes(r_code)

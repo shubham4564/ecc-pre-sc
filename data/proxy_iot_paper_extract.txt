@@ -1,0 +1,9 @@
+Proxy re-encryption enabled secure and anonymous IoT
+
+Working extract notes used for implementation mapping:
+- anonymized identity via pseudonymous identifiers
+- owner/device registration before data sharing
+- owner-authorized data sharing policies
+- proxy re-encryption request flow from IoT device
+- owner-approved transformed ciphertext for access
+- verification step before consumption

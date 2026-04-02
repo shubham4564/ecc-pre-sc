@@ -263,6 +263,28 @@ Output:
 
 For benchmark-specific notes, see [benchmarks/README.md](benchmarks/README.md).
 
+### Paper methodology conformance gate
+
+To run the strict paper-track conformance checks in one command:
+
+```powershell
+python benchmarks/run_paper_conformance.py
+```
+
+This gate validates:
+
+- VPRE commitment consistency (`scripts/vpre_offchain_demo.py`)
+- SENSH contract conformance tests
+- BloCyNfo contract + helper conformance tests
+- Low-latency OABE contract + helper conformance tests
+
+Outputs:
+
+- [benchmarks/paper_methodology_conformance.json](benchmarks/paper_methodology_conformance.json)
+- [benchmarks/paper_methodology_conformance.csv](benchmarks/paper_methodology_conformance.csv)
+
+Release rule: treat the paper release as blocked if `overall_status` is `fail`.
+
 ## Recommended full workflow
 
 ```powershell

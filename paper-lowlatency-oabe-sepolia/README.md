@@ -22,6 +22,7 @@ No npm/Hardhat/Foundry is used. Contracts are compiled and deployed via Python s
 - `scripts/benchmark_sepolia_python.py`: benchmark and generate comparison CSV
 - `scripts/offchain_helpers.py`: off-chain cryptographic placeholders used for repeatable tests/benchmarks
 - `tests/test_lowlatency_oabe.py`: contract tests
+- `tests/test_offchain_helpers.py`: off-chain helper conformance tests
 
 ## Prerequisites
 
@@ -76,6 +77,12 @@ Outputs:
 pytest -q tests/test_lowlatency_oabe.py
 ```
 
+For full local conformance checks (contracts + helper pipeline):
+
+```bash
+pytest -q
+```
+
 ## Security Notes
 
 - `ACCSC` includes on-chain punishment logic for repeated failed requests.
@@ -85,4 +92,4 @@ pytest -q tests/test_lowlatency_oabe.py
 ## Engineering Scope
 
 - The paper does not publish full low-level Java crypto source; this prototype mirrors contract-layer protocol and verification semantics.
-- Off-chain cryptographic helper code is deterministic for repeatable benchmarks, not production cryptography.
+- Off-chain helper now uses AES-GCM for encrypted payload wrapping while keeping benchmark interfaces stable.
