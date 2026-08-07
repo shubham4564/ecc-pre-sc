@@ -64,113 +64,93 @@ contract PRE
         countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
     }
 
+    // Lattice ZKP Constants (Fiat-Shamir with Rejection Sampling over Matrix Group)
+    uint256 public constant LATTICE_Q = 8380417;
+    int256 public constant LATTICE_B = 1048575;
+    uint256 public constant LATTICE_CHALLENGE_Q = 256;
+
+    // Public matrix A (2 x 4)
+    uint256 public constant A00 = 175421;
+    uint256 public constant A01 = 894125;
+    uint256 public constant A02 = 645123;
+    uint256 public constant A03 = 912401;
+
+    uint256 public constant A10 = 451204;
+    uint256 public constant A11 = 781203;
+    uint256 public constant A12 = 314159;
+    uint256 public constant A13 = 271828;
+
     struct ReEncryptInputs {
         uint rk1;
         uint rk2;
         uint rk3;
-        uint commitmentX;
-        uint commitmentY;
-        uint response;
+        uint256[] commitment; // Vector W (length 2)
+        int256[] response;    // Vector Z (length 4)
         uint nonce;
         uint expiry;
     }
 
-    function verifyZKProof(
-        uint rk1,
-        uint rk2,
-        uint rk3,
-        uint commitmentX,
-        uint commitmentY,
-        uint response,
-        uint nonce,
-        uint expiry,
-        uint proofPublicKeyX,
-        uint proofPublicKeyY
+    function verifyLatticeZKP(
+        ReEncryptInputs memory params,
+        uint proofPublicKey0,
+        uint proofPublicKey1
     ) public view returns (bool) {
-        // Curve Validation: Verify that (proofPublicKeyX, proofPublicKeyY) and (commitmentX, commitmentY) are valid points on SECP256k1
-        if (!EllipticCurve.isOnCurve(proofPublicKeyX, proofPublicKeyY, 0, 7, PRIME_FIELD_MODULUS)) {
-            return false;
-        }
-        if (!EllipticCurve.isOnCurve(commitmentX, commitmentY, 0, 7, PRIME_FIELD_MODULUS)) {
-            return false;
-        }
-        if (response == 0 || response >= CURVE_ORDER) {
+        if (params.commitment.length != 2 || params.response.length != 4) {
             return false;
         }
 
-        // Challenge Computation (c)
+        // 1. Norm bound check: ||Z||_inf <= LATTICE_B
+        for (uint i = 0; i < 4; i++) {
+            int256 zVal = params.response[i];
+            int256 absZ = zVal < 0 ? -zVal : zVal;
+            if (absZ > LATTICE_B) {
+                return false;
+            }
+        }
+
+        // 2. Compute Challenge c
         uint256 c = uint256(
             keccak256(
                 abi.encodePacked(
                     address(this),
                     msg.sender,
-                    rk1,
-                    rk2,
-                    rk3,
-                    commitmentX,
-                    commitmentY,
-                    proofPublicKeyX,
-                    proofPublicKeyY,
-                    nonce,
-                    expiry
+                    params.rk1,
+                    params.rk2,
+                    params.rk3,
+                    params.commitment[0],
+                    params.commitment[1],
+                    proofPublicKey0,
+                    proofPublicKey1,
+                    params.nonce,
+                    params.expiry
                 )
             )
-        ) % CURVE_ORDER;
+        ) % LATTICE_CHALLENGE_Q;
 
-        // LHS Computation: LHS = s * G
-        (uint256 lhsX, uint256 lhsY) = EllipticCurve.ecMul(
-            response,
-            GENERATOR_X,
-            GENERATOR_Y,
-            0,
-            PRIME_FIELD_MODULUS
-        );
+        int256 qInt = int256(LATTICE_Q);
 
-        // RHS Computation: RHS = R + c * PublicKey
-        (uint256 cPkX, uint256 cPkY) = EllipticCurve.ecMul(
-            c,
-            proofPublicKeyX,
-            proofPublicKeyY,
-            0,
-            PRIME_FIELD_MODULUS
-        );
+        // 3. Compute LHS = A * Z mod Q
+        int256 rawLhs0 = (int256(A00) * params.response[0] + int256(A01) * params.response[1] + int256(A02) * params.response[2] + int256(A03) * params.response[3]) % qInt;
+        int256 rawLhs1 = (int256(A10) * params.response[0] + int256(A11) * params.response[1] + int256(A12) * params.response[2] + int256(A13) * params.response[3]) % qInt;
 
-        (uint256 rhsX, uint256 rhsY) = EllipticCurve.ecAdd(
-            commitmentX,
-            commitmentY,
-            cPkX,
-            cPkY,
-            0,
-            PRIME_FIELD_MODULUS
-        );
+        uint256 lhs0 = uint256((rawLhs0 % qInt + qInt) % qInt);
+        uint256 lhs1 = uint256((rawLhs1 % qInt + qInt) % qInt);
 
-        // Verification: LHS == RHS
-        return (lhsX == rhsX && lhsY == rhsY);
+        // 4. Compute RHS = W + c * T mod Q
+        uint256 rhs0 = (params.commitment[0] + c * proofPublicKey0) % LATTICE_Q;
+        uint256 rhs1 = (params.commitment[1] + c * proofPublicKey1) % LATTICE_Q;
+
+        return (lhs0 == rhs0 && lhs1 == rhs1);
     }
 
-    function verifyZKProof(
-        ReEncryptInputs memory params,
-        uint proofPublicKeyX,
-        uint proofPublicKeyY
-    ) public view returns (bool) {
-        return verifyZKProof(
-            params.rk1,
-            params.rk2,
-            params.rk3,
-            params.commitmentX,
-            params.commitmentY,
-            params.response,
-            params.nonce,
-            params.expiry,
-            proofPublicKeyX,
-            proofPublicKeyY
-        );
+    function verifyLatticeZKP(ReEncryptInputs memory params) public view returns (bool) {
+        (uint pub0, uint pub1, bool isSet) = countingContract.getProofPublicKey(msg.sender);
+        if (!isSet) return false;
+        return verifyLatticeZKP(params, pub0, pub1);
     }
 
     function verifyZKProof(ReEncryptInputs memory params) public view returns (bool) {
-        (uint pubX, uint pubY, bool isSet) = countingContract.getProofPublicKey(msg.sender);
-        if (!isSet) return false;
-        return verifyZKProof(params, pubX, pubY);
+        return verifyLatticeZKP(params);
     }
 
     function reEncrypt(ReEncryptInputs memory params)
@@ -183,11 +163,11 @@ contract PRE
         bytes32 nonceKey = keccak256(abi.encodePacked(msg.sender, params.nonce));
         require(!usedProofNonces[nonceKey], "Nonce already used");
 
-        (uint pubX, uint pubY, bool isSet) = countingContract.getProofPublicKey(msg.sender);
+        (uint pub0, uint pub1, bool isSet) = countingContract.getProofPublicKey(msg.sender);
         require(isSet, "Proof public key not set");
 
         require(
-            verifyZKProof(params, pubX, pubY),
+            verifyLatticeZKP(params, pub0, pub1),
             "Proof verification failed"
         );
 

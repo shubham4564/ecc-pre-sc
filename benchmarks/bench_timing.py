@@ -258,11 +258,10 @@ def run_onchain(n: int) -> List[tuple]:
         proof = sp.generate_reencryption_proof(contract_addr, sender, rk1, rk2, rk3)
         params_dict = {
             "rk1": rk1, "rk2": rk2, "rk3": rk3,
-            "commitmentX": proof["commitmentX"],
-            "commitmentY": proof["commitmentY"],
-            "response":    proof["response"],
-            "nonce":       proof["nonce"],
-            "expiry":      proof["expiry"],
+            "commitment": proof["commitment"],
+            "response":   proof["response"],
+            "nonce":      proof["nonce"],
+            "expiry":     proof["expiry"],
         }
 
         # Dry-run to surface any revert before spending gas

@@ -101,9 +101,8 @@ def main() -> None:
         "rk1": int(rk1),
         "rk2": int(rk2),
         "rk3": int(rk3),
-        "commitmentX": int(proof["commitmentX"]),
-        "commitmentY": int(proof["commitmentY"]),
-        "response": int(proof["response"]),
+        "commitment": [int(c) for c in proof["commitment"]],
+        "response": [int(r) for r in proof["response"]],
         "nonce": int(proof["nonce"]),
         "expiry": int(proof["expiry"]),
     }

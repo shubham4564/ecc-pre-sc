@@ -210,11 +210,10 @@ def make_reencrypt_params(sp: sp_module.SP, contract_address: str,
         "rk1": rk1,
         "rk2": rk2,
         "rk3": rk3,
-        "commitmentX": proof["commitmentX"],
-        "commitmentY": proof["commitmentY"],
-        "response":    proof["response"],
-        "nonce":       proof["nonce"],
-        "expiry":      proof["expiry"],
+        "commitment": proof["commitment"],
+        "response":   proof["response"],
+        "nonce":      proof["nonce"],
+        "expiry":     proof["expiry"],
     }
 
 
