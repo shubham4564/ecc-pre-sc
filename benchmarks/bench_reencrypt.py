@@ -80,6 +80,10 @@ def make_real_params(contract_address=None, sender_address=None):
         "response": [int(r) for r in proof["response"]],
         "nonce": int(proof["nonce"]),
         "expiry": int(proof["expiry"]),
+        "userPublicKey": proof["userPublicKey"],
+        "userNonce": int(proof["userNonce"]),
+        "userExpiry": int(proof["userExpiry"]),
+        "userSignature": proof["userSignature"],
     }
 
 

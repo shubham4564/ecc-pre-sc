@@ -29,6 +29,7 @@ contract PRE
     address public immutable serviceProviderAdmin;
     bool private immutable countingEnabled;
     mapping(bytes32 => bool) private usedProofNonces;
+    mapping(address => mapping(uint256 => bool)) public usedUserNonces;
 
     // Address for the counting contract
     Counter public immutable countingContract;
@@ -81,13 +82,78 @@ contract PRE
     uint256 public constant A13 = 271828;
 
     struct ReEncryptInputs {
-        uint rk1;
-        uint rk2;
-        uint rk3;
+        uint256 rk1;
+        uint256 rk2;
+        uint256 rk3;
         uint256[] commitment; // Vector W (length 2)
         int256[] response;    // Vector Z (length 4)
-        uint nonce;
-        uint expiry;
+        uint256 nonce;        // SP Nonce
+        uint256 expiry;       // SP Expiry
+        // User Intent & Authorization Fields:
+        address userPublicKey;
+        uint256 userNonce;
+        uint256 userExpiry;
+        bytes userSignature;  // ECDSA Signature (r, s, v)
+    }
+
+    function verifyUserIntent(ReEncryptInputs memory params) public view returns (bool) {
+        if (params.userExpiry != 0 && block.timestamp > params.userExpiry) return false;
+        if (params.userPublicKey == address(0)) return false;
+        if (params.userSignature.length != 65) return false;
+
+        bytes32 token = keccak256(
+            abi.encodePacked(address(this), msg.sender, params.userNonce, params.userExpiry)
+        );
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", token)
+        );
+        address recovered = recoverSigner(ethSignedMessageHash, params.userSignature);
+        return (recovered == params.userPublicKey);
+    }
+
+    function recoverSigner(bytes32 _ethSignedMessageHash, bytes memory _sig) internal pure returns (address) {
+        (bytes32 r, bytes32 s, uint8 v) = splitSignature(_sig);
+        return ecrecover(_ethSignedMessageHash, v, r, s);
+    }
+
+    function splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+        require(sig.length == 65, "Invalid signature length");
+        assembly {
+            r := mload(add(sig, 32))
+            s := mload(add(sig, 64))
+            v := byte(0, mload(add(sig, 96)))
+        }
+    }
+
+    function computeLatticeChallenge(
+        ReEncryptInputs memory params,
+        uint proofPublicKey0,
+        uint proofPublicKey1
+    ) internal view returns (uint256) {
+        bytes32 userToken = keccak256(abi.encodePacked(address(this), msg.sender, params.userNonce, params.userExpiry));
+        bytes32 h1 = keccak256(
+            abi.encodePacked(
+                address(this),
+                msg.sender,
+                params.rk1,
+                params.rk2,
+                params.rk3,
+                params.commitment[0],
+                params.commitment[1]
+            )
+        );
+        bytes32 h2 = keccak256(
+            abi.encodePacked(
+                proofPublicKey0,
+                proofPublicKey1,
+                params.userPublicKey,
+                userToken,
+                params.userSignature,
+                params.nonce,
+                params.expiry
+            )
+        );
+        return uint256(keccak256(abi.encodePacked(h1, h2))) % LATTICE_CHALLENGE_Q;
     }
 
     function verifyLatticeZKP(
@@ -109,38 +175,26 @@ contract PRE
         }
 
         // 2. Compute Challenge c
-        uint256 c = uint256(
-            keccak256(
-                abi.encodePacked(
-                    address(this),
-                    msg.sender,
-                    params.rk1,
-                    params.rk2,
-                    params.rk3,
-                    params.commitment[0],
-                    params.commitment[1],
-                    proofPublicKey0,
-                    proofPublicKey1,
-                    params.nonce,
-                    params.expiry
-                )
-            )
-        ) % LATTICE_CHALLENGE_Q;
-
+        uint256 c = computeLatticeChallenge(params, proofPublicKey0, proofPublicKey1);
         int256 qInt = int256(LATTICE_Q);
 
-        // 3. Compute LHS = A * Z mod Q
-        int256 rawLhs0 = (int256(A00) * params.response[0] + int256(A01) * params.response[1] + int256(A02) * params.response[2] + int256(A03) * params.response[3]) % qInt;
-        int256 rawLhs1 = (int256(A10) * params.response[0] + int256(A11) * params.response[1] + int256(A12) * params.response[2] + int256(A13) * params.response[3]) % qInt;
+        // 3. Verify component 0
+        {
+            int256 rawLhs0 = (int256(A00) * params.response[0] + int256(A01) * params.response[1] + int256(A02) * params.response[2] + int256(A03) * params.response[3]) % qInt;
+            uint256 lhs0 = uint256((rawLhs0 % qInt + qInt) % qInt);
+            uint256 rhs0 = (params.commitment[0] + c * proofPublicKey0) % LATTICE_Q;
+            if (lhs0 != rhs0) return false;
+        }
 
-        uint256 lhs0 = uint256((rawLhs0 % qInt + qInt) % qInt);
-        uint256 lhs1 = uint256((rawLhs1 % qInt + qInt) % qInt);
+        // 4. Verify component 1
+        {
+            int256 rawLhs1 = (int256(A10) * params.response[0] + int256(A11) * params.response[1] + int256(A12) * params.response[2] + int256(A13) * params.response[3]) % qInt;
+            uint256 lhs1 = uint256((rawLhs1 % qInt + qInt) % qInt);
+            uint256 rhs1 = (params.commitment[1] + c * proofPublicKey1) % LATTICE_Q;
+            if (lhs1 != rhs1) return false;
+        }
 
-        // 4. Compute RHS = W + c * T mod Q
-        uint256 rhs0 = (params.commitment[0] + c * proofPublicKey0) % LATTICE_Q;
-        uint256 rhs1 = (params.commitment[1] + c * proofPublicKey1) % LATTICE_Q;
-
-        return (lhs0 == rhs0 && lhs1 == rhs1);
+        return true;
     }
 
     function verifyLatticeZKP(ReEncryptInputs memory params) public view returns (bool) {
@@ -160,8 +214,15 @@ contract PRE
         require(countingContract.isAllowed(msg.sender), "Unauthorized service provider");
         require(params.expiry == 0 || block.timestamp <= params.expiry, "Proof expired");
 
+        // 1. Verify User Intent & Signature
+        require(verifyUserIntent(params), "User intent verification failed");
+
+        // 2. User Replay Protection
+        require(!usedUserNonces[params.userPublicKey][params.userNonce], "User nonce already used");
+
+        // 3. SP Nonce Replay Protection
         bytes32 nonceKey = keccak256(abi.encodePacked(msg.sender, params.nonce));
-        require(!usedProofNonces[nonceKey], "Nonce already used");
+        require(!usedProofNonces[nonceKey], "SP nonce already used");
 
         (uint pub0, uint pub1, bool isSet) = countingContract.getProofPublicKey(msg.sender);
         require(isSet, "Proof public key not set");
@@ -171,6 +232,7 @@ contract PRE
             "Proof verification failed"
         );
 
+        usedUserNonces[params.userPublicKey][params.userNonce] = true;
         usedProofNonces[nonceKey] = true;
 
         // Perform re-encryption

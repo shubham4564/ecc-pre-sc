@@ -214,6 +214,10 @@ def make_reencrypt_params(sp: sp_module.SP, contract_address: str,
         "response":   proof["response"],
         "nonce":      proof["nonce"],
         "expiry":     proof["expiry"],
+        "userPublicKey": proof["userPublicKey"],
+        "userNonce": proof["userNonce"],
+        "userExpiry": proof["userExpiry"],
+        "userSignature": proof["userSignature"],
     }
 
 

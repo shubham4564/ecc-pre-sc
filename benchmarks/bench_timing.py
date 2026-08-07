@@ -262,6 +262,10 @@ def run_onchain(n: int) -> List[tuple]:
             "response":   proof["response"],
             "nonce":      proof["nonce"],
             "expiry":     proof["expiry"],
+            "userPublicKey": proof["userPublicKey"],
+            "userNonce": proof["userNonce"],
+            "userExpiry": proof["userExpiry"],
+            "userSignature": proof["userSignature"],
         }
 
         # Dry-run to surface any revert before spending gas

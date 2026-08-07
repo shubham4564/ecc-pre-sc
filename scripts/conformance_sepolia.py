@@ -105,6 +105,10 @@ def main() -> None:
         "response": [int(r) for r in proof["response"]],
         "nonce": int(proof["nonce"]),
         "expiry": int(proof["expiry"]),
+        "userPublicKey": proof["userPublicKey"],
+        "userNonce": int(proof["userNonce"]),
+        "userExpiry": int(proof["userExpiry"]),
+        "userSignature": proof["userSignature"],
     }
     print("  [3] generate ZKP params  OK")
 

@@ -14,6 +14,8 @@ import math
 import secrets
 import sys
 import time
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from gas_utils import GasReportStore, format_tx_gas_summary, print_tx_gas_summary
 
 # ---------------------------------------------------------------------------
@@ -215,10 +217,6 @@ class SP:
 
         if isinstance(proof_or_commitmentX, dict):
             proof = proof_or_commitmentX
-            commitmentX = proof['commitmentX']
-            commitmentY = proof['commitmentY']
-        if isinstance(proof_or_commitmentX, dict):
-            proof = proof_or_commitmentX
             commitment = proof['commitment']
             response = proof['response']
             nonce = proof.get('nonce', 0)
@@ -232,6 +230,10 @@ class SP:
             'response': [int(r) for r in response],
             'nonce': int(nonce if nonce is not None else 0),
             'expiry': int(expiry if expiry is not None else 0),
+            'userPublicKey': Web3.to_checksum_address(proof['userPublicKey']),
+            'userNonce': int(proof['userNonce']),
+            'userExpiry': int(proof['userExpiry']),
+            'userSignature': proof['userSignature'],
         }
         block = web3.eth.get_block('latest')
         block_gas_limit = block['gasLimit']
@@ -566,8 +568,38 @@ def ppow(base, exp, mod):
     return result
 
 
-def generate_lattice_zkp_inputs(secret_vector=None, pub_0=None, pub_1=None, rk1=0, rk2=0, rk3=0, contract_address=None, sender_address=None, nonce=None, expiry=0):
-    """Generate Lattice ZKP inputs (W, c, Z) matching verifyLatticeZKP in Solidity."""
+def create_user_access_token_and_signature(user_private_key=None, contract_address=None, sp_address=None, user_nonce=None, user_expiry=0):
+    """Generate and sign a user access request token tau using EIP-191 personal sign."""
+    load_dotenv()
+    if not user_private_key:
+        user_private_key = os.getenv('PRIVATE_KEY')
+    user_acc = Account.from_key(user_private_key)
+
+    if user_nonce is None:
+        user_nonce = secrets.randbits(64)
+    user_nonce = int(user_nonce)
+    user_expiry = int(user_expiry)
+
+    token_bytes = Web3.solidity_keccak(
+        ['address', 'address', 'uint256', 'uint256'],
+        [Web3.to_checksum_address(contract_address), Web3.to_checksum_address(sp_address), user_nonce, user_expiry]
+    )
+    signable_msg = encode_defunct(primitive=token_bytes)
+    signed = user_acc.sign_message(signable_msg)
+    return {
+        'user_public_key': user_acc.address,
+        'user_nonce': user_nonce,
+        'user_expiry': user_expiry,
+        'user_signature': signed.signature,
+        'user_token': token_bytes
+    }
+
+def generate_lattice_zkp_inputs(
+    secret_vector=None, pub_0=None, pub_1=None, rk1=0, rk2=0, rk3=0,
+    contract_address=None, sender_address=None, nonce=None, expiry=0,
+    user_private_key=None, user_public_key=None, user_nonce=None, user_expiry=0, user_signature=None
+):
+    """Generate Lattice ZKP inputs bound to user access request token matching verifyLatticeZKP in Solidity."""
     Q = 8380417
     Q_C = 256
     A = [
@@ -597,28 +629,42 @@ def generate_lattice_zkp_inputs(secret_vector=None, pub_0=None, pub_1=None, rk1=
         nonce = int(nonce)
     expiry = int(expiry)
 
+    # User intent signature generation if missing
+    if user_signature is None or user_public_key is None:
+        u_intent = create_user_access_token_and_signature(
+            user_private_key=user_private_key,
+            contract_address=contract_address,
+            sp_address=wallet_address,
+            user_nonce=user_nonce,
+            user_expiry=user_expiry
+        )
+        user_public_key = u_intent['user_public_key']
+        user_nonce = u_intent['user_nonce']
+        user_expiry = u_intent['user_expiry']
+        user_signature = u_intent['user_signature']
+    else:
+        user_nonce = int(user_nonce or secrets.randbits(64))
+        user_expiry = int(user_expiry)
+
     # Mask vector y
     y = [secrets.randbelow(500000) - 250000 for _ in range(4)]
     w0 = sum(A[0][j] * y[j] for j in range(4)) % Q
     w1 = sum(A[1][j] * y[j] for j in range(4)) % Q
     commitment = [w0, w1]
 
-    c_bytes = Web3.solidity_keccak(
-        ['address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-        [
-            Web3.to_checksum_address(contract_address),
-            Web3.to_checksum_address(wallet_address),
-            rk1,
-            rk2,
-            rk3,
-            commitment[0],
-            commitment[1],
-            int(pub_0),
-            int(pub_1),
-            nonce,
-            expiry
-        ]
+    user_token = Web3.solidity_keccak(
+        ['address', 'address', 'uint256', 'uint256'],
+        [Web3.to_checksum_address(contract_address), Web3.to_checksum_address(wallet_address), user_nonce, user_expiry]
     )
+    h1 = Web3.solidity_keccak(
+        ['address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+        [Web3.to_checksum_address(contract_address), Web3.to_checksum_address(wallet_address), rk1, rk2, rk3, commitment[0], commitment[1]]
+    )
+    h2 = Web3.solidity_keccak(
+        ['uint256', 'uint256', 'address', 'bytes32', 'bytes', 'uint256', 'uint256'],
+        [int(pub_0), int(pub_1), Web3.to_checksum_address(user_public_key), user_token, user_signature, nonce, expiry]
+    )
+    c_bytes = Web3.solidity_keccak(['bytes32', 'bytes32'], [h1, h2])
     c = int.from_bytes(c_bytes, 'big') % Q_C
 
     response = [y[j] + c * secret_vector[j] for j in range(4)]
@@ -628,6 +674,10 @@ def generate_lattice_zkp_inputs(secret_vector=None, pub_0=None, pub_1=None, rk1=
         'response': response,
         'nonce': nonce,
         'expiry': expiry,
+        'userPublicKey': Web3.to_checksum_address(user_public_key),
+        'userNonce': user_nonce,
+        'userExpiry': user_expiry,
+        'userSignature': user_signature,
         'commitmentX': commitment[0],
         'commitmentY': commitment[1],
         'proofCommitmentX': commitment[0],
