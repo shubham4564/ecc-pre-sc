@@ -93,19 +93,19 @@ def main() -> None:
     # 3. Build reEncrypt params using real SP crypto
     sp = sp_module.SP()
     rk1, rk2, rk3 = sp.rekeygenerate()
-    proof = sp_module.generate_arithmetic_zkp_inputs()
+    proof = sp_module.generate_arithmetic_zkp_inputs(
+        rk1=rk1, rk2=rk2, rk3=rk3, contract_address=pre.address, sender_address=sender
+    )
 
     params = {
         "rk1": int(rk1),
         "rk2": int(rk2),
         "rk3": int(rk3),
-        "i": int(proof["i"]),
-        "o": int(proof["o"]),
-        "y": int(proof["y"]),
-        "z": int(proof["z"]),
-        "w": int(proof["w"]),
-        "alpha": int(proof["alpha"]),
-        "gamma": int(proof["gamma"]),
+        "commitmentX": int(proof["commitmentX"]),
+        "commitmentY": int(proof["commitmentY"]),
+        "response": int(proof["response"]),
+        "nonce": int(proof["nonce"]),
+        "expiry": int(proof["expiry"]),
     }
     print("  [3] generate ZKP params  OK")
 

@@ -65,15 +65,29 @@ class TTP:
         return bin(result)[2:]
 
     def hash3(self, c1, c2, c3, c4):
-        """Implementation of the hash 3 function"""
-        mega_string = hex(c1)[2:] + hex(c2)[2:] + str(c3) + hex(c4)[2:]
-        if len(mega_string) % 2 != 0:
-            mega_string = mega_string[:-1]
-        mega_bytes = bytes.fromhex(mega_string)
-        hash_bytes = keccak(mega_bytes)
-        hash_int = int.from_bytes(hash_bytes, byteorder='big')
-        hash_mod = hash_int % self.q
-        return hash_mod
+        """Implementation of the hash 3 function matching Solidity keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))"""
+        c1_int = int(c1.x()) if hasattr(c1, 'x') else int(c1)
+        c2_int = int(c2.x()) if hasattr(c2, 'x') else int(c2)
+        c4_int = int(c4.x()) if hasattr(c4, 'x') else int(c4)
+
+        if isinstance(c3, str):
+            c3_str = c3[2:] if c3.startswith('0x') else c3
+            if all(ch in '0123456789abcdefABCDEF' for ch in c3_str) and len(c3_str) % 2 == 0:
+                c3_bytes = bytes.fromhex(c3_str)
+            elif all(ch in '01' for ch in c3_str) and len(c3_str) > 0:
+                c3_bytes = int(c3_str, 2).to_bytes((len(c3_str) + 7) // 8, byteorder='big')
+            else:
+                c3_bytes = c3_str.encode()
+        elif isinstance(c3, (bytes, bytearray)):
+            c3_bytes = bytes(c3)
+        else:
+            c3_bytes = str(c3).encode()
+
+        hash_bytes = Web3.solidity_keccak(
+            ['uint256', 'uint256', 'bytes', 'uint256'],
+            [c1_int, c2_int, c3_bytes, c4_int]
+        )
+        return int.from_bytes(hash_bytes, byteorder='big') % self.q
 
     def hash4(self, id_a, id_b, pk_b1_x, pk_b1_y):
         """Implementation of the hash 4 function"""

@@ -182,7 +182,9 @@ class SP:
             print(f"Error loading parameters: {str(e)}")
             raise
 
-    def requestCprimeFromeContract(self, rk1, rk2, rk3, i, o, y, z, w, alpha, gamma):
+    function_or_method = None # helper marker if needed
+
+    def requestCprimeFromeContract(self, rk1, rk2, rk3, proof_or_commitmentX, commitmentY=None, response=None, nonce=None, expiry=None):
         """Setup web3 and contract instance"""
         load_dotenv()
         PRIVATE_KEY = os.getenv('PRIVATE_KEY')
@@ -192,12 +194,14 @@ class SP:
         if not all([PRIVATE_KEY, ALCHEMY_API, WALLET_ADDRESS]):
             raise ValueError("Missing environment variables. Please check .env file")
         
-        # Connect to local Ethereum node
-        web3 = Web3(Web3.HTTPProvider('https://eth-sepolia.g.alchemy.com/v2/6TCy-aXdMGmNp80ebxCB9CdETCjCgdV5'))
-        
-        account = WALLET_ADDRESS
+        rpc_url = os.getenv("RPC_URL") or ALCHEMY_API
+        if rpc_url and not rpc_url.startswith("http"):
+            rpc_url = f"https://eth-sepolia.g.alchemy.com/v2/{rpc_url}"
 
-        # self.account = self.WALLET_ADDRESS
+        web3 = Web3(Web3.HTTPProvider(rpc_url or 'https://eth-sepolia.g.alchemy.com/v2/6TCy-aXdMGmNp80ebxCB9CdETCjCgdV5'))
+        
+        account = Web3.to_checksum_address(WALLET_ADDRESS)
+
         if not web3.is_connected():
             raise Exception("Failed to connect to network")
     
@@ -205,43 +209,52 @@ class SP:
             compdata = json.load(f)
             contract_abi = compdata['PRE']['abi']
      
-        contract_address = get_contract_info()  # Replace with your contract's address
-
+        contract_address = Web3.to_checksum_address(get_contract_info())
 
         contract = web3.eth.contract(address=contract_address, abi=contract_abi)
+
+        if isinstance(proof_or_commitmentX, dict):
+            proof = proof_or_commitmentX
+            commitmentX = proof['commitmentX']
+            commitmentY = proof['commitmentY']
+            response = proof['response']
+            nonce = proof.get('nonce', 0)
+            expiry = proof.get('expiry', 0)
+        else:
+            commitmentX = proof_or_commitmentX
+
         params = {
-            'rk1': rk1,
-            'rk2': rk2,
-            'rk3': rk3,
-            'i': i,
-            'o': o,
-            'y': y,
-            'z': z,
-            'w': w,
-            'alpha': alpha,
-            'gamma': gamma,
+            'rk1': int(rk1),
+            'rk2': int(rk2),
+            'rk3': int(rk3),
+            'commitmentX': int(commitmentX),
+            'commitmentY': int(commitmentY),
+            'response': int(response),
+            'nonce': int(nonce if nonce is not None else 0),
+            'expiry': int(expiry if expiry is not None else 0),
         }
         block = web3.eth.get_block('latest')
         block_gas_limit = block['gasLimit']
+        gas_price = int(web3.eth.gas_price * 1.5)
         # Build transaction
         try:
             cPrime = contract.functions.reEncrypt(params).call({
                 'from': account,
                 'gas': min(7000000, block_gas_limit - 100000),
-                'gasPrice': web3.eth.gas_price
+                'gasPrice': gas_price
             })
 
             result = contract.functions.reEncrypt(params).build_transaction({
                 'from': account,
-                'nonce': web3.eth.get_transaction_count(account),
+                'nonce': web3.eth.get_transaction_count(account, 'pending'),
                 'gas': min(7000000, block_gas_limit - 100000),
-                'gasPrice': web3.eth.gas_price
+                'gasPrice': gas_price
             })
 
             signed_txn = web3.eth.account.sign_transaction(result, private_key=PRIVATE_KEY)
             raw_tx = getattr(signed_txn, 'rawTransaction', None) or getattr(signed_txn, 'raw_transaction')
             tx_hash = web3.eth.send_raw_transaction(raw_tx)
-            tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+            tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=300)
             gas_summary = format_tx_gas_summary(
                 web3,
                 tx_hash,
@@ -360,6 +373,11 @@ class SP:
         proof_response = (witness_nonce + challenge * proof_secret) % self.q
 
         return {
+            'commitmentX': int(commitment.x()),
+            'commitmentY': int(commitment.y()),
+            'response': int(proof_response),
+            'nonce': int(proof_nonce),
+            'expiry': int(proof_expiry),
             'proofCommitmentX': int(commitment.x()),
             'proofCommitmentY': int(commitment.y()),
             'proofResponse': int(proof_response),
@@ -577,55 +595,89 @@ def ppow(base, exp, mod):
     return result
 
 
-def generate_arithmetic_zkp_inputs(max_attempts=100):
-    """Generate arithmetic proof inputs that satisfy verifyProof equations."""
-    for _ in range(max_attempts):
-        i = generate_large_prime(20)
-        o = generate_large_prime(20)
-        bytesize = 20
-        j = get_rand(bytesize)
-        v = get_rand(bytesize)
-        w = generate_large_prime(10)
+def generate_schnorr_zkp_inputs(secret_scalar, pub_x, pub_y, rk1, rk2, rk3, contract_address, sender_address, nonce=None, expiry=0):
+    """Generate SECP256k1 Schnorr proof for (rk1, rk2, rk3) matching verifyZKProof in Solidity."""
+    N = int(SECP256k1.order)
+    G = SECP256k1.generator
 
-        y, z, A, B = computeCommitment(i, o, j, v, w)
-        gamma = computeChallenge(i, y, o, z, A, B, w)
-        alpha = computeProof(j, gamma, v, w)
+    secret_scalar = int(secret_scalar)
+    pub_x = int(pub_x)
+    pub_y = int(pub_y)
+    rk1 = int(rk1)
+    rk2 = int(rk2)
+    rk3 = int(rk3)
 
-        if alpha < 0:
-            val1 = ppow(i, -alpha, w)
-            val2 = ppow(o, -alpha, w)
-            val1 = extended_euclid(val1, w)
-            val2 = extended_euclid(val2, w)
-        else:
-            val1 = ppow(i, alpha, w)
-            val2 = ppow(o, alpha, w)
+    if nonce is None:
+        nonce = secrets.randbits(64)
+    else:
+        nonce = int(nonce)
+    expiry = int(expiry)
 
-        if gamma < 0:
-            val3 = ppow(y, -gamma, w)
-            val4 = ppow(z, -gamma, w)
-            val3 = extended_euclid(val3, w)
-            val4 = extended_euclid(val4, w)
-        else:
-            val3 = ppow(y, gamma, w)
-            val4 = ppow(z, gamma, w)
+    # 1. Random scalar k in [1, N-1]
+    k = secrets.randbelow(N - 1) + 1
 
-        A_ = (val1 * val3) % w
-        B_ = (val2 * val4) % w
-        hash2 = keccak256_encode_packed(y, z, A_, B_)
-        gamma_ = int.from_bytes(hash2, byteorder='big') % w
+    # 2. Commitment point R = k * G
+    R = k * G
+    commitmentX = int(R.x())
+    commitmentY = int(R.y())
 
-        if gamma == gamma_:
-            return {
-                'i': int(i),
-                'o': int(o),
-                'y': int(y),
-                'z': int(z),
-                'w': int(w),
-                'alpha': int(alpha),
-                'gamma': int(gamma),
-            }
+    # 3. Challenge c = keccak256(abi.encodePacked(address(this), msg.sender, rk1, rk2, rk3, commitmentX, commitmentY, proofPublicKeyX, proofPublicKeyY, nonce, expiry)) % N
+    c_bytes = Web3.solidity_keccak(
+        ['address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
+        [
+            Web3.to_checksum_address(contract_address),
+            Web3.to_checksum_address(sender_address),
+            rk1,
+            rk2,
+            rk3,
+            commitmentX,
+            commitmentY,
+            pub_x,
+            pub_y,
+            nonce,
+            expiry
+        ]
+    )
+    c = int.from_bytes(c_bytes, 'big') % N
 
-    raise RuntimeError("Failed to generate arithmetic ZKP inputs that verify")
+    # 4. Response s = (k + c * secret_scalar) % N
+    response = (k + c * secret_scalar) % N
+
+    return {
+        'commitmentX': commitmentX,
+        'commitmentY': commitmentY,
+        'response': response,
+        'nonce': nonce,
+        'expiry': expiry
+    }
+
+def generate_arithmetic_zkp_inputs(secret_scalar=None, pub_x=None, pub_y=None, rk1=0, rk2=0, rk3=0, contract_address=None, sender_address=None, nonce=None, expiry=0):
+    """Generate Schnorr ZKP inputs for reEncrypt function."""
+    load_dotenv()
+    wallet_address = sender_address or os.getenv('WALLET_ADDRESS')
+    if not wallet_address:
+        raise ValueError("Missing WALLET_ADDRESS in .env or sender_address argument")
+
+    if secret_scalar is None or pub_x is None or pub_y is None:
+        material = load_sp_proof_material(wallet_address)
+        secret_scalar = secret_scalar or int(material['secret_scalar'])
+        pub_x = pub_x or int(material['public_key_x'])
+        pub_y = pub_y or int(material['public_key_y'])
+
+    contract_address = contract_address or get_contract_info()
+
+    return generate_schnorr_zkp_inputs(
+        secret_scalar=secret_scalar,
+        pub_x=pub_x,
+        pub_y=pub_y,
+        rk1=rk1,
+        rk2=rk2,
+        rk3=rk3,
+        contract_address=contract_address,
+        sender_address=wallet_address,
+        nonce=nonce,
+        expiry=expiry
+    )
 
 def keccak256_encode_packed(*args):
     # Concatenate the arguments as bytes with fixed size
@@ -637,7 +689,6 @@ def keccak256_encode_packed(*args):
 
 
 def main():
-
     sp = SP()
     rk1, rk2, rk3 = sp.rekeygenerate()
     
@@ -650,58 +701,25 @@ def main():
     if not wallet_address:
         raise ValueError('Missing WALLET_ADDRESS in .env')
 
-    proof = generate_arithmetic_zkp_inputs()
+    sp_proof_material = load_sp_proof_material(wallet_address)
+    contract_address = get_contract_info()
 
-    # print("RK1:", rk11)
-    # print("RK2:", rk22)    
-    # print("RK3:", rk33, "\n")    
-
-    # if alpha < 0:
-    #     val1 = ppow(i, -alpha, w)
-    #     val2 = ppow(o, -alpha, w)
-    #     val1 = extended_euclid(val1, w)
-    #     val2 = extended_euclid(val2, w)
-    # else:
-    #     val1 = ppow(i, alpha, w)
-    #     val2 = ppow(o, alpha, w)
-
-    # if gamma < 0:
-    #     val3 = ppow(y, -gamma, w)
-    #     val4 = ppow(z, -gamma, w)
-    #     val3 = extended_euclid(val3, w)
-    #     val4 = extended_euclid(val4, w)
-    # else:
-    #     val3 = ppow(y, gamma, w)
-    #     val4 = ppow(z, gamma, w)
-
-    # A_ = (val1 * val3) % w
-    # B_ = (val2 * val4) % w
-
-    # hash2 = keccak256_encode_packed(y, z, A_, B_)
-    # gamma_ = int.from_bytes(hash2, byteorder='big') % w
-
-    # print("val1:", val1)
-    # print("val2:", val2)
-    # print("val3:", val3)
-    # print("val4:", val4)
-    # print("A_:", A_)
-    # print("B_:", B_)
-    # print("hash2: ", hash2)
-    # print("gamma_: ", gamma_)   
-
-    # print("Proven" if gamma == gamma_ else "Not Proven!")
+    proof = generate_schnorr_zkp_inputs(
+        secret_scalar=sp_proof_material['secret_scalar'],
+        pub_x=sp_proof_material['public_key_x'],
+        pub_y=sp_proof_material['public_key_y'],
+        rk1=rk11,
+        rk2=rk22,
+        rk3=rk33,
+        contract_address=contract_address,
+        sender_address=wallet_address,
+    )
 
     c1p, c2p, c3p, c4p = sp.requestCprimeFromeContract(
         rk11,
         rk22,
         rk33,
-        proof['i'],
-        proof['o'],
-        proof['y'],
-        proof['z'],
-        proof['w'],
-        proof['alpha'],
-        proof['gamma'],
+        proof,
     )
 
     print("C1':", c1p)
@@ -709,14 +727,10 @@ def main():
     print("C3':", c3p)
     print("C4':", c4p)
     write_reencrypt_result(c1p, c2p, c3p, c4p)
-    # c1p = 16601619521193507631881745842136240544064338946043750133150392853469066784298
-    # c2p = 10122071982055415830668804254851217698030102169577189223646741109087862154444
-    # c3p = "011101101111011011101110110010110110000001000111011001110000011011111100011001110101010110000110111000111111000011010000000101010011001111011001101011000000111010010000101100010100111101011001000001101100001101010110000110111100110011001000011100111101011111011001101111000100111010100010011111010010101010111101111001000110001010011101000010110001111000101101001001101010111101101010"
-    # c4p = 21819835231191479475374158079125792625175074100316135629874716081323071073414
 
     rederyptedmessage = sp.redecrypt(c1p, c2p, c3p, c4p)
-    print(rederyptedmessage)
+    print("Redecrypted key:", rederyptedmessage)
 
- 
+
 if __name__ == "__main__":
     main()

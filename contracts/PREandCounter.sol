@@ -64,109 +64,113 @@ contract PRE
         countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
     }
 
-    function extendedEuclid(int256 e, int256 m) internal pure returns (int256) {
-        // Extended Euclidean Algorithm for modular inverse
-        int256[3] memory u = [int256(1), int256(0), m];
-        int256[3] memory v = [int256(0), int256(1), e];
-
-        while (v[2] != 0) {
-            int256 q = u[2] / v[2];
-            int256 temp0 = u[0] - q * v[0];
-            int256 temp1 = u[1] - q * v[1];
-            int256 temp2 = u[2] - q * v[2];
-
-            (u[0], u[1], u[2]) = (v[0], v[1], v[2]);
-            (v[0], v[1], v[2]) = (temp0, temp1, temp2);
-        }
-
-        if (u[1] < 0) {
-            return u[1] + m;
-        } else {
-            return u[1];
-        }
-    }
-    function modExp(int256 base, int256 exp, int256 m) internal pure returns (int256) {
-        // Handle negative exponents by computing inverse later
-        bool negativeExp = exp < 0;
-        if (negativeExp) {
-            exp = -exp;
-        }
-
-        // Convert to positive domain
-        int256 b = base % m;
-        if (b < 0) {
-            b += m;
-        }
-
-        uint256 e = uint256(exp);
-        int256 result = 1;
-        while (e > 0) {
-            if ((e & 1) == 1) {
-                result = (result * b) % m;
-            }
-            b = (b * b) % m;
-            e >>= 1;
-        }
-
-        if (negativeExp) {
-            result = extendedEuclid(result, m);
-        }
-        return result;
-    }
-
-    function computeVals(int256 base1, int256 base2, int256 exp, int256 w)
-    internal pure returns (int256, int256)
-    {
-        // If exp < 0 => compute pow(base, -exp, w) and take inverse
-        if (exp < 0) {
-            int256 absExp = -exp;
-            int256 valA = modExp(base1, absExp, w);
-            int256 valB = modExp(base2, absExp, w);
-            valA = extendedEuclid(valA, w);
-            valB = extendedEuclid(valB, w);
-
-            return (valA, valB);
-        } else {
-            // exp >= 0
-            int256 valA = modExp(base1, exp, w);
-            int256 valB = modExp(base2, exp, w);
-            return (valA, valB);
-        }
-    }
-
-
-    function verifyProof(int256 i, int256 o, int256 y, int256 z, int256 w, int256 alpha, int256 gamma) pure internal returns (bool)
-    {
-
-        int256 gamma_;
-        (int256 val1, int256 val2) = computeVals(i, o, alpha, w);
-        (int256 val3, int256 val4) = computeVals(y, z, gamma, w);
-
-        int256 A_ = (val1 * val3) % w;
-        int256 B_ = (val2 * val4) % w;
-
-        bytes32 hash2 = keccak256(abi.encodePacked(y, z, A_, B_));
-        gamma_ = int256(uint256(hash2) % uint256(w));
-
-        if(gamma == gamma_) {
-            return true;
-        }else {
-            return false;
-        }
-    }
-
-
     struct ReEncryptInputs {
         uint rk1;
         uint rk2;
         uint rk3;
-        int256 i;
-        int256 o;
-        int256 y;
-        int256 z;
-        int256 w;
-        int256 alpha;
-        int256 gamma;
+        uint commitmentX;
+        uint commitmentY;
+        uint response;
+        uint nonce;
+        uint expiry;
+    }
+
+    function verifyZKProof(
+        uint rk1,
+        uint rk2,
+        uint rk3,
+        uint commitmentX,
+        uint commitmentY,
+        uint response,
+        uint nonce,
+        uint expiry,
+        uint proofPublicKeyX,
+        uint proofPublicKeyY
+    ) public view returns (bool) {
+        // Curve Validation: Verify that (proofPublicKeyX, proofPublicKeyY) and (commitmentX, commitmentY) are valid points on SECP256k1
+        if (!EllipticCurve.isOnCurve(proofPublicKeyX, proofPublicKeyY, 0, 7, PRIME_FIELD_MODULUS)) {
+            return false;
+        }
+        if (!EllipticCurve.isOnCurve(commitmentX, commitmentY, 0, 7, PRIME_FIELD_MODULUS)) {
+            return false;
+        }
+        if (response == 0 || response >= CURVE_ORDER) {
+            return false;
+        }
+
+        // Challenge Computation (c)
+        uint256 c = uint256(
+            keccak256(
+                abi.encodePacked(
+                    address(this),
+                    msg.sender,
+                    rk1,
+                    rk2,
+                    rk3,
+                    commitmentX,
+                    commitmentY,
+                    proofPublicKeyX,
+                    proofPublicKeyY,
+                    nonce,
+                    expiry
+                )
+            )
+        ) % CURVE_ORDER;
+
+        // LHS Computation: LHS = s * G
+        (uint256 lhsX, uint256 lhsY) = EllipticCurve.ecMul(
+            response,
+            GENERATOR_X,
+            GENERATOR_Y,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+
+        // RHS Computation: RHS = R + c * PublicKey
+        (uint256 cPkX, uint256 cPkY) = EllipticCurve.ecMul(
+            c,
+            proofPublicKeyX,
+            proofPublicKeyY,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+
+        (uint256 rhsX, uint256 rhsY) = EllipticCurve.ecAdd(
+            commitmentX,
+            commitmentY,
+            cPkX,
+            cPkY,
+            0,
+            PRIME_FIELD_MODULUS
+        );
+
+        // Verification: LHS == RHS
+        return (lhsX == rhsX && lhsY == rhsY);
+    }
+
+    function verifyZKProof(
+        ReEncryptInputs memory params,
+        uint proofPublicKeyX,
+        uint proofPublicKeyY
+    ) public view returns (bool) {
+        return verifyZKProof(
+            params.rk1,
+            params.rk2,
+            params.rk3,
+            params.commitmentX,
+            params.commitmentY,
+            params.response,
+            params.nonce,
+            params.expiry,
+            proofPublicKeyX,
+            proofPublicKeyY
+        );
+    }
+
+    function verifyZKProof(ReEncryptInputs memory params) public view returns (bool) {
+        (uint pubX, uint pubY, bool isSet) = countingContract.getProofPublicKey(msg.sender);
+        if (!isSet) return false;
+        return verifyZKProof(params, pubX, pubY);
     }
 
     function reEncrypt(ReEncryptInputs memory params)
@@ -174,10 +178,20 @@ contract PRE
         returns (uint, uint, bytes memory, uint)
     {
         require(countingContract.isAllowed(msg.sender), "Unauthorized service provider");
+        require(params.expiry == 0 || block.timestamp <= params.expiry, "Proof expired");
+
+        bytes32 nonceKey = keccak256(abi.encodePacked(msg.sender, params.nonce));
+        require(!usedProofNonces[nonceKey], "Nonce already used");
+
+        (uint pubX, uint pubY, bool isSet) = countingContract.getProofPublicKey(msg.sender);
+        require(isSet, "Proof public key not set");
+
         require(
-            verifyProof(params.i, params.o, params.y, params.z, params.w, params.alpha, params.gamma),
+            verifyZKProof(params, pubX, pubY),
             "Proof verification failed"
         );
+
+        usedProofNonces[nonceKey] = true;
 
         // Perform re-encryption
         (uint _c1prime, uint _c2prime, uint _c4prime) = performReEncryption(params.rk1, params.rk2, params.rk3);

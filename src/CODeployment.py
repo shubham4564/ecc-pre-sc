@@ -457,11 +457,12 @@ def deploy_contract(c1, c2, c3, c4, c5p):
     block_gas_limit = block['gasLimit']
     
     # Build constructor transaction
+    gas_price = int(web3.eth.gas_price * 1.3)
     construct_txn = Contract.constructor(*constructor_args).build_transaction({
         'from': account,
         'nonce': web3.eth.get_transaction_count(account),
         'gas': min(7000000, block_gas_limit - 100000),
-        'gasPrice': web3.eth.gas_price
+        'gasPrice': gas_price
     })
     
     # Sign transaction
@@ -475,7 +476,7 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         tx_hash = web3.eth.send_raw_transaction(raw_tx)
         
         # Wait for receipt
-        tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
+        tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=300)
         pre_contract_address = Web3.to_checksum_address(str(tx_receipt.contractAddress))
         deployed_pre = web3.eth.contract(address=pre_contract_address, abi=contract_abi)
         counter_contract_address = Web3.to_checksum_address(deployed_pre.functions.countingContract().call())
@@ -490,12 +491,12 @@ def deploy_contract(c1, c2, c3, c4, c5p):
             'from': account,
             'nonce': web3.eth.get_transaction_count(account),
             'gas': min(500000, block_gas_limit - 100000),
-            'gasPrice': web3.eth.gas_price
+            'gasPrice': int(web3.eth.gas_price * 1.3)
         })
         signed_set_proof_tx = web3.eth.account.sign_transaction(set_proof_tx, private_key=PRIVATE_KEY)
         raw_set_proof_tx = getattr(signed_set_proof_tx, 'rawTransaction', None) or getattr(signed_set_proof_tx, 'raw_transaction')
         set_proof_hash = web3.eth.send_raw_transaction(raw_set_proof_tx)
-        set_proof_receipt = web3.eth.wait_for_transaction_receipt(set_proof_hash)
+        set_proof_receipt = web3.eth.wait_for_transaction_receipt(set_proof_hash, timeout=300)
         if set_proof_receipt['status'] != 1:
             raise RuntimeError(f"Failed to register proof public key: {set_proof_hash.hex()}")
         gas_summary = format_tx_gas_summary(
