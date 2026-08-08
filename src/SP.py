@@ -52,10 +52,9 @@ def load_sp_proof_material(expected_wallet_address):
     return payload
 
 class SP:
-    ttp = TTP.TTP() 
-    hash1 = ttp.hash1
-    hash2 = ttp.hash2
-    hash4 = ttp.hash4
+    hash1 = staticmethod(TTP.hash1)
+    hash2 = staticmethod(TTP.hash2)
+    hash4 = staticmethod(TTP.hash4)
 
     def get_redec_parameters(self):
         """Load parameters needed for re-decryption"""

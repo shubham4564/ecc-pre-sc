@@ -217,16 +217,12 @@ def _print_table(stats_rows: List[tuple[str, float, float, float, int]]):
 
 
 def main():
-    # Instances
-    ttp = ttp_module.TTP()
+    # Instances for SP
     sp = sp_module.SP()
     params = _load_params()
 
-    # Instances for SP
-    sp = sp_module.SP()
-
     # Synthetic sample tuple for the hot path
-    c1p, c2p, c3p_bits, c4p_x, key_bytes, sigma_bits = _gen_synthetic_cipher(ttp, params)
+    c1p, c2p, c3p_bits, c4p_x, key_bytes, sigma_bits = _gen_synthetic_cipher(ttp_module, params)
     # Sanity check: ensure SP.redecrypt can recover the key from the synthetic sample
     recovered_key = sp.redecrypt(c1p, c2p, c3p_bits, c4p_x)
     if recovered_key != key_bytes:
@@ -246,16 +242,16 @@ def main():
 
     def _bench_roundtrip():
         # Generate fresh data and fully run SP.redecrypt once per iteration
-        _c1, _c2, _c3_bits, _c4x, _kb, _sb = _gen_synthetic_cipher(ttp, params)
+        _c1, _c2, _c3_bits, _c4x, _kb, _sb = _gen_synthetic_cipher(ttp_module, params)
         sp.redecrypt(_c1, _c2, _c3_bits, _c4x)
 
     # n=256 variants (hot path only, without SP.redecrypt to avoid l_bits mismatch)
     def _bench_hotpath_n256():
-        _ = redecrypt_hotpath(ttp, params, c1p, c2p, c3p_bits, override_n=256)
+        _ = redecrypt_hotpath(ttp_module, params, c1p, c2p, c3p_bits, override_n=256)
 
     def _bench_roundtrip_n256():
-        _c1, _c2, _c3_bits, _c4x, _kb, _sb = _gen_synthetic_cipher(ttp, params, override_n=256)
-        _ = redecrypt_hotpath(ttp, params, _c1, _c2, _c3_bits, override_n=256)
+        _c1, _c2, _c3_bits, _c4x, _kb, _sb = _gen_synthetic_cipher(ttp_module, params, override_n=256)
+        _ = redecrypt_hotpath(ttp_module, params, _c1, _c2, _c3_bits, override_n=256)
 
     # Run benches
     results = []  # list of (op, latency_ms)

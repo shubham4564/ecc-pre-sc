@@ -35,9 +35,9 @@ _SP_PROOF_FILE = _DATA_DIR / "sp_proof_material.json"
 
 
 class CO:
-    hash1 = TTP.hash1
-    hash2 = TTP.hash2
-    hash3 = TTP.hash3
+    hash1 = staticmethod(TTP.hash1)
+    hash2 = staticmethod(TTP.hash2)
+    hash3 = staticmethod(TTP.hash3)
 
     def __init__(self):
         self.curve = SECP256k1
@@ -633,20 +633,16 @@ def write_encrypted_content_artifact(encrypted_content, plaintext_description=No
 
 
 def generate_128bit_symmetric_key():
-    """Generates a 128-bit symmetric key using Fernet."""
-    # key = Fernet.generate_key()  # Fernet handles key generation securely
-    key = os.urandom(32) 
-    return key
+    """Generates a 128-bit symmetric key (16 bytes)."""
+    return os.urandom(16)
 
 def encrypt_content(content, key):
     """Encrypts content using the provided symmetric key."""
-    # f = Fernet(key)
-    # encrypted_content = f.encrypt(content.encode())  # Encode message to bytes
-    # return base64.b64encode(encrypted_content).decode() # Encode to base64 for safe transport
-    base64_key = base64.urlsafe_b64encode(key)  # Encode the key in Base64
+    key_padded = key.ljust(32, b'\0') if len(key) < 32 else key[:32]
+    base64_key = base64.urlsafe_b64encode(key_padded)
     f = Fernet(base64_key)
-    encrypted_content = f.encrypt(content.encode())  # Encode message to bytes
-    return base64.b64encode(encrypted_content).decode()  # Encode to Base64 for safe transport
+    encrypted_content = f.encrypt(content.encode())
+    return base64.b64encode(encrypted_content).decode()
 
 def bytes_to_bits(byte_data):
     bit_string = ""

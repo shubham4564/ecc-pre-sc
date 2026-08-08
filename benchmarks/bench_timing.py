@@ -135,8 +135,7 @@ def run_offchain(n: int) -> List[tuple]:
     import SP as sp_module
     from CODeployment import CO
 
-    ttp = ttp_module.TTP()
-    sp  = sp_module.SP()
+    sp = sp_module.SP()
 
     # ── One-time setup: write consistent system_parameters.json ─────────────
     # We call key_generate once on a real CO to produce the parameters file

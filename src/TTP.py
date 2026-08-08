@@ -1,143 +1,129 @@
 import random
+import secrets
 import sys
+import hashlib
 from ecdsa.curves import SECP256k1
 from ecdsa.numbertheory import inverse_mod
 from eth_hash.auto import keccak
-
-import hashlib
-import random
 from web3 import Web3
+
+# Global Public Parameters
+CURVE = SECP256k1
+Q = int(CURVE.order)
+P = CURVE.generator
+
+def generate_keypair():
+    """Generate a random scalar private key (sk in [1, Q-1]) and compute public key (pk = sk * P)."""
+    sk = secrets.randbelow(Q - 1) + 1
+    pk = sk * P
+    return sk, pk
+
+def compute_y_squared(x, a, b, p):
+    """Computes the y squared value"""
+    x2 = (x * x) % p
+    x3 = (x2 * x) % p
+    y2 = (x3 + a * x + b) % p
+    return y2
+
+def get_prefix(x, y, a, b, p):
+    """Computes the parity for the x and y values"""
+    y2_computed = compute_y_squared(x, a, b, p)
+    y2 = (y * y) % p
+
+    if y2 == y2_computed:
+        if y % 2 == 0:
+            return 0x02
+        return 0x03
+    raise ValueError("Point is not on curve")
+
+def hash1(message, sigma, id_a, pk_a1, pk_a2):
+    """Implementation of the hash 1 function"""
+    mega_string = str(message) + str(sigma) + str(id_a) + str(pk_a1) + str(pk_a2)
+    hash_bytes = keccak(mega_string.encode())
+    return int.from_bytes(hash_bytes, byteorder='big') % Q
+
+def hash2(n, seed_value):
+    """Implementation of the hash 2 function"""
+    hash_value = hash((n, seed_value))
+    result = hash_value & ((1 << n) - 1)
+    if result < (1 << (n - 1)):
+        result += (1 << (n - 1))
+    return bin(result)[2:]
+
+def hash3(c1, c2, c3, c4):
+    """Implementation of the hash 3 function matching Solidity keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))"""
+    c1_int = int(c1.x()) if hasattr(c1, 'x') else int(c1)
+    c2_int = int(c2.x()) if hasattr(c2, 'x') else int(c2)
+    c4_int = int(c4.x()) if hasattr(c4, 'x') else int(c4)
+
+    if isinstance(c3, str):
+        c3_str = c3[2:] if c3.startswith('0x') else c3
+        if all(ch in '0123456789abcdefABCDEF' for ch in c3_str) and len(c3_str) % 2 == 0:
+            c3_bytes = bytes.fromhex(c3_str)
+        elif all(ch in '01' for ch in c3_str) and len(c3_str) > 0:
+            c3_bytes = int(c3_str, 2).to_bytes((len(c3_str) + 7) // 8, byteorder='big')
+        else:
+            c3_bytes = c3_str.encode()
+    elif isinstance(c3, (bytes, bytearray)):
+        c3_bytes = bytes(c3)
+    else:
+        c3_bytes = str(c3).encode()
+
+    hash_bytes = Web3.solidity_keccak(
+        ['uint256', 'uint256', 'bytes', 'uint256'],
+        [c1_int, c2_int, c3_bytes, c4_int]
+    )
+    return int.from_bytes(hash_bytes, byteorder='big') % Q
+
+def hash4(id_a, id_b, pk_b1_x, pk_b1_y):
+    """Implementation of the hash 4 function"""
+    mega_string = str(id_a) + str(id_b) + str(pk_b1_x) + str(pk_b1_y)
+    hash_bytes = keccak(mega_string.encode())
+    return int.from_bytes(hash_bytes, byteorder='big') % Q
+
+def message_to_binary(message):
+    """Converts the message to proper binary"""
+    utf8_bytes = message.encode('utf-8')
+    binary_string = ''.join(format(byte, '08b') for byte in utf8_bytes)
+    return binary_string
+
+def hex_to_ascii(hex_string):
+    """Converts the hexadecimal string to an ASCII string"""
+    if hex_string.startswith('0x'):
+        hex_string = hex_string[2:]
+    ascii_str = ''
+    for i in range(0, len(hex_string), 2):
+        hex_pair = hex_string[i:i+2]
+        char_code = int(hex_pair, 16)
+        ascii_str += chr(char_code)
+    return ascii_str
+
+def keccak256_hex(address):
+    """Hash an address with the Keccak-256 hash function"""
+    if not address.startswith("0x") or len(address) != 42:
+        raise ValueError("Invalid Ethereum address format.")
+    byte_data = bytes.fromhex(address[2:])
+    hash_bytes = keccak(byte_data)
+    return hash_bytes.hex()
 
 
 class TTP:
-    """Class containing all our cryptographic valuess and functions"""
+    """Stateless helper container for backwards compatibility."""
+    curve = CURVE
+    q = Q
+    p = P
+    hash1 = staticmethod(hash1)
+    hash2 = staticmethod(hash2)
+    hash3 = staticmethod(hash3)
+    hash4 = staticmethod(hash4)
+    generate_keypair = staticmethod(generate_keypair)
+
     def __init__(self):
-        self.curve = SECP256k1
-        self.q = int(self.curve.order)
-        self.p = self.curve.generator
-
+        self.curve = CURVE
+        self.q = Q
+        self.p = P
         self.id_a = 1234
-        self.a_x = None
-        self.a_y = None
-        self.a_xp = None
-        self.a_yp = None
-
         self.id_b = 4321
-        self.b_x = None
-        self.b_y = None
-        self.b_xp = None
-        self.b_yp = None
-
-        self.c = None
-        self.l_bits = None
-        self.n_bits = None
-
-    def compute_y_squared(self, x, a, b, p):
-        """Computes the y squared value"""
-        x2 = (x * x) % p
-        x3 = (x2 * x) % p
-        y2 = (x3 + a *  x + b) % p
-        return y2
-
-    def get_prefix(self, x, y, a, b, p):
-        """Computes the parity for the x and y values"""
-        y2_computed = self.compute_y_squared(x, a, b, p)
-        y2 = (y * y) % p
-
-        if y2 == y2_computed:
-            if y % 2 == 0:
-                return 0x02
-            return 0x03
-        raise ValueError("Something terrible happened!")
-
-    def hash1(self, message, sigma, id_a, pk_a1, pk_a2):
-        """Implementation of the hash 1 function"""
-        mega_string = str(message) + str(sigma) + str(id_a) + str(pk_a1) + str(pk_a2)
-        hash_bytes = keccak(mega_string.encode())
-        return int.from_bytes(hash_bytes, byteorder='big') % self.q
-
-    def hash2(self, n, seed_value):
-        """Implementation of the hash 2 function"""
-        hash_value = hash((n, seed_value))
-        result = hash_value & ((1 << n) - 1)
-        if result < (1 << (n - 1)):
-            result += (1 << (n - 1))
-        return bin(result)[2:]
-
-    def hash3(self, c1, c2, c3, c4):
-        """Implementation of the hash 3 function matching Solidity keccak256(abi.encodePacked(_c1X, _c2X, _c3, _c4X))"""
-        c1_int = int(c1.x()) if hasattr(c1, 'x') else int(c1)
-        c2_int = int(c2.x()) if hasattr(c2, 'x') else int(c2)
-        c4_int = int(c4.x()) if hasattr(c4, 'x') else int(c4)
-
-        if isinstance(c3, str):
-            c3_str = c3[2:] if c3.startswith('0x') else c3
-            if all(ch in '0123456789abcdefABCDEF' for ch in c3_str) and len(c3_str) % 2 == 0:
-                c3_bytes = bytes.fromhex(c3_str)
-            elif all(ch in '01' for ch in c3_str) and len(c3_str) > 0:
-                c3_bytes = int(c3_str, 2).to_bytes((len(c3_str) + 7) // 8, byteorder='big')
-            else:
-                c3_bytes = c3_str.encode()
-        elif isinstance(c3, (bytes, bytearray)):
-            c3_bytes = bytes(c3)
-        else:
-            c3_bytes = str(c3).encode()
-
-        hash_bytes = Web3.solidity_keccak(
-            ['uint256', 'uint256', 'bytes', 'uint256'],
-            [c1_int, c2_int, c3_bytes, c4_int]
-        )
-        return int.from_bytes(hash_bytes, byteorder='big') % self.q
-
-    def hash4(self, id_a, id_b, pk_b1_x, pk_b1_y):
-        """Implementation of the hash 4 function"""
-        mega_string = str(id_a) + str(id_b) + str(pk_b1_x) + str(pk_b1_y)
-        hash_bytes = keccak(mega_string.encode())
-        return int.from_bytes(hash_bytes, byteorder='big') % self.q
-
-    def message_to_binary(self, message):
-        """Converts the message to proper binary"""
-        utf8_bytes = message.encode('utf-8')
-        binary_string = ''.join(format(byte, '08b') for byte in utf8_bytes)
-        return binary_string
-
-    def hex_to_ascii(self, hex_string):
-        """Converts the hexadecimal string to an ASCII string"""
-        if hex_string.startswith('0x'):
-            hex_string = hex_string[2:]
-        ascii_str = ''
-        for i in range(0, len(hex_string), 2):
-            hex_pair = hex_string[i:i+2]
-            char_code = int(hex_pair, 16)
-            ascii_str += chr(char_code)
-        return ascii_str
-
-    def key_generate(self):
-        """Generates the keys and ephemeral randomness. Do not use this to generate real keys."""
-        # Person A (Content Owner)
-        self.a_x = random.randint(0, self.q - 1)
-        self.a_y = random.randint(0, self.q - 1)
-        self.a_xp = self.a_x * self.p
-        self.a_yp = self.a_y * self.p
-
-        # Person B (User)
-        self.b_x = random.randint(0, self.q - 1)
-        self.b_y = random.randint(0, self.q - 1)
-        self.b_xp = self.b_x * self.p
-        self.b_yp = self.b_y * self.p
-
-        # Ephemeral Randomness
-        self.c = random.randint(0, self.q - 1)
-
-        # Sigma Length (hard coded to 256 for this example)
-        self.l_bits = 128
-
-
-    def keccak256_hex(address):
-        """Hash an address with the Keccak-256 hash function"""
-        # Validate input
-        if not address.startswith("0x") or len(address) != 42:
-            raise ValueError("Invalid Ethereum address format.")
 
         # Convert hex string to bytes
         byte_data = bytes.fromhex(address[2:])

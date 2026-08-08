@@ -16,10 +16,9 @@ _DATA_DIR = _ROOT / "data"
 
 
 class User:
-    ttp = TTP.TTP()
-    hash1 = ttp.hash1
-    hash2 = ttp.hash2
-    hash4 = ttp.hash4
+    hash1 = staticmethod(TTP.hash1)
+    hash2 = staticmethod(TTP.hash2)
+    hash4 = staticmethod(TTP.hash4)
 
     def bits_to_bytes(self, bit_string):
         byte_array = bytearray()
@@ -114,7 +113,8 @@ class User:
     def decrypt_content(self, encrypted_content, key):
         """Decrypts a message using the provided symmetric key."""
         try:
-            base64_key = base64.urlsafe_b64encode(key)
+            key_padded = key.ljust(32, b'\0') if len(key) < 32 else key[:32]
+            base64_key = base64.urlsafe_b64encode(key_padded)
             f = Fernet(base64_key)
             decoded_content = base64.b64decode(encrypted_content.encode())
             decrypted_content = f.decrypt(decoded_content).decode()
