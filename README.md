@@ -1,36 +1,36 @@
 # ECC-PRE for Secure Download Counting
 
-This project implements an elliptic-curve proxy re-encryption (ECC-PRE) workflow integrated with Ethereum smart contracts for controlled content access and download counting. The system lets a content owner encrypt content off-chain, deploy a PRE smart contract on-chain, re-encrypt ciphertext for an authorized user, and increment a download counter only when the re-encryption flow succeeds.
+This project implements an elliptic-curve proxy re-encryption (ECC-PRE) workflow integrated with Ethereum smart contracts for controlled content access and download counting. The system lets a content owner encrypt content off-chain, deploy a PRE smart contract on-chain, re-encrypt ciphertext for an authorized user via zero-knowledge proofs and user-signed intent tokens, and atomically increment a download counter only when the re-encryption flow succeeds.
 
 In short, the repository combines:
 
-- off-chain cryptographic key generation, encryption, re-encryption, and re-decryption
-- on-chain PRE verification and controlled re-encryption
-- a counter contract that records successful usage events
+- off-chain decentralized key generation (eliminating TTP key-escrow), local encryption, re-encryption, and re-decryption
+- on-chain zero-knowledge proof verification (LatticeZKP over matrix groups), EIP-191 user intent signature verification, and user replay protection
+- a counter contract that atomically records successful access events
 - benchmark scripts for off-chain and on-chain performance evaluation
 
 ## Main components
 
 - [src/CODeployment.py](src/CODeployment.py)  
-	Generates parameters, compiles contracts, writes compiled artifacts, deploys the PRE contract, and stores deployment metadata.
+	Generates local CO key parameters, compiles contracts, writes compiled artifacts, deploys the PRE contract, registers initial SP allowlists, and stores deployment metadata.
 
 - [src/SP.py](src/SP.py)  
-	Generates re-encryption keys, calls `reEncrypt()` on-chain, retrieves returned values, and re-decrypts them locally.
+	Generates local SP proof keys, binds user intent tokens into zero-knowledge proofs, calls `reEncrypt()` on-chain, retrieves returned ciphertext values, and re-decrypts them locally.
 
 - [src/User.py](src/User.py)  
-	Loads system parameters and performs local re-decryption of the re-encrypted ciphertext returned by the SP.
+	Generates local User keypairs, constructs and signs EIP-191 access request tokens, and performs local re-decryption of the re-encrypted ciphertext returned by the SP.
 
 - [src/CountChecker.py](src/CountChecker.py)  
 	Reads the counter contract state and prints the current count for the configured wallet.
 
 - [src/SPManager.py](src/SPManager.py)  
-	Manages the Service Provider allowlist after deployment by adding, removing, checking, or transferring SP administration.
+	Manages the Service Provider allowlist and SP proof public keys after deployment by adding, removing, checking, or transferring SP administration.
 
 - [src/GasReporter.py](src/GasReporter.py)  
 	Summarizes deployment gas and recorded runtime gas usage for blockchain-interacting operations.
 
 - [contracts/PREandCounter.sol](contracts/PREandCounter.sol)  
-	Contains the PRE contract and the counter contract. The PRE constructor accepts a `countingEnabled` flag; when `true`, each successful `reEncrypt()` call increments the counter.
+	Contains the PRE contract and the counter contract. Implements Zero-Knowledge Proof verification (`verifyLatticeZKP()`), EIP-191 `verifyUserIntent()` signature recovery, and `usedUserNonces` replay protection. When a valid proof and user signature are verified, each successful `reEncrypt()` call atomically increments the counter.
 
 - [contracts/FastEcMul.sol](contracts/FastEcMul.sol)  
 	Library used internally by PREandCounter.sol for fast elliptic curve scalar multiplication via wNAF representation and scalar decomposition through the SECP256k1 endomorphism.
@@ -215,6 +215,9 @@ Important note:
 After a normal run, the following important files should exist or be updated:
 
 - [data/system_parameters.json](data/system_parameters.json)
+- [data/sp_proof_material.json](data/sp_proof_material.json)
+- [data/encrypted_content.json](data/encrypted_content.json)
+- [data/reencrypt_result.json](data/reencrypt_result.json)
 - [data/contract_info.json](data/contract_info.json)
 - [data/PRE_compData1.json](data/PRE_compData1.json)
 - [contracts/compiled/compiler_info.json](contracts/compiled/compiler_info.json)
