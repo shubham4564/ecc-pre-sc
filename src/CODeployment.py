@@ -488,7 +488,19 @@ def deploy_contract(c1, c2, c3, c4, c5p):
         tx_receipt = web3.eth.wait_for_transaction_receipt(tx_hash, timeout=300)
         pre_contract_address = Web3.to_checksum_address(str(tx_receipt.contractAddress))
         deployed_pre = web3.eth.contract(address=pre_contract_address, abi=contract_abi)
-        counter_contract_address = Web3.to_checksum_address(deployed_pre.functions.countingContract().call())
+        
+        counter_contract_address = None
+        for attempt in range(10):
+            try:
+                addr = deployed_pre.functions.countingContract().call()
+                if addr and addr != "0x0000000000000000000000000000000000000000":
+                    counter_contract_address = Web3.to_checksum_address(addr)
+                    break
+            except Exception:
+                time.sleep(2)
+        if not counter_contract_address:
+            raise RuntimeError("Failed to query countingContract address from PRE deployment")
+
         with open(_DATA_DIR / 'Counter_compData.json', 'r') as f:
             counter_abi = json.load(f)['abi']
         counter_contract = web3.eth.contract(address=counter_contract_address, abi=counter_abi)
