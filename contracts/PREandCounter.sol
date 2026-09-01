@@ -65,28 +65,17 @@ contract PRE
         countingContract = new Counter(address(this), _serviceProviderAdmin, _allowedAddresses);
     }
 
-    // Lattice ZKP Constants (Fiat-Shamir with Rejection Sampling over Matrix Group)
-    uint256 public constant LATTICE_Q = 8380417;
-    int256 public constant LATTICE_B = 1048575;
-    uint256 public constant LATTICE_CHALLENGE_Q = 256;
-
-    // Public matrix A (2 x 4)
-    uint256 public constant A00 = 175421;
-    uint256 public constant A01 = 894125;
-    uint256 public constant A02 = 645123;
-    uint256 public constant A03 = 912401;
-
-    uint256 public constant A10 = 451204;
-    uint256 public constant A11 = 781203;
-    uint256 public constant A12 = 314159;
-    uint256 public constant A13 = 271828;
-
+    // Schnorr ZKP Constants
+    // -------------------------------------------------------------------------
+    // Curve parameters are SECP256k1, defined above.
+    
     struct ReEncryptInputs {
         uint256 rk1;
         uint256 rk2;
         uint256 rk3;
-        uint256[] commitment; // Vector W (length 2)
-        int256[] response;    // Vector Z (length 4)
+        uint256 commitmentX;  // Schnorr commitment W_x
+        uint256 commitmentY;  // Schnorr commitment W_y
+        uint256 response;     // Schnorr response z
         uint256 nonce;        // SP Nonce
         uint256 expiry;       // SP Expiry
         // User Intent & Authorization Fields:
@@ -125,10 +114,10 @@ contract PRE
         }
     }
 
-    function computeLatticeChallenge(
+    function computeSchnorrChallenge(
         ReEncryptInputs memory params,
-        uint proofPublicKey0,
-        uint proofPublicKey1
+        uint proofPublicKeyX,
+        uint proofPublicKeyY
     ) internal view returns (uint256) {
         bytes32 userToken = keccak256(abi.encodePacked(address(this), msg.sender, params.userNonce, params.userExpiry));
         bytes32 h1 = keccak256(
@@ -138,14 +127,14 @@ contract PRE
                 params.rk1,
                 params.rk2,
                 params.rk3,
-                params.commitment[0],
-                params.commitment[1]
+                params.commitmentX,
+                params.commitmentY
             )
         );
         bytes32 h2 = keccak256(
             abi.encodePacked(
-                proofPublicKey0,
-                proofPublicKey1,
+                proofPublicKeyX,
+                proofPublicKeyY,
                 params.userPublicKey,
                 userToken,
                 params.userSignature,
@@ -153,58 +142,56 @@ contract PRE
                 params.expiry
             )
         );
-        return uint256(keccak256(abi.encodePacked(h1, h2))) % LATTICE_CHALLENGE_Q;
+        return uint256(keccak256(abi.encodePacked(h1, h2))) % CURVE_ORDER;
     }
 
-    function verifyLatticeZKP(
+    function verifySchnorrZKP(
         ReEncryptInputs memory params,
-        uint proofPublicKey0,
-        uint proofPublicKey1
+        uint proofPublicKeyX,
+        uint proofPublicKeyY
     ) public view returns (bool) {
-        if (params.commitment.length != 2 || params.response.length != 4) {
+        // 1. Verify W is on curve
+        if (!EllipticCurve.isOnCurve(params.commitmentX, params.commitmentY, 0, 7, PRIME_FIELD_MODULUS)) {
             return false;
         }
 
-        // 1. Norm bound check: ||Z||_inf <= LATTICE_B
-        for (uint i = 0; i < 4; i++) {
-            int256 zVal = params.response[i];
-            int256 absZ = zVal < 0 ? -zVal : zVal;
-            if (absZ > LATTICE_B) {
-                return false;
-            }
-        }
-
         // 2. Compute Challenge c
-        uint256 c = computeLatticeChallenge(params, proofPublicKey0, proofPublicKey1);
-        int256 qInt = int256(LATTICE_Q);
+        uint256 c = computeSchnorrChallenge(params, proofPublicKeyX, proofPublicKeyY);
+        require(c != 0, "Invalid challenge");
 
-        // 3. Verify component 0
-        {
-            int256 rawLhs0 = (int256(A00) * params.response[0] + int256(A01) * params.response[1] + int256(A02) * params.response[2] + int256(A03) * params.response[3]) % qInt;
-            uint256 lhs0 = uint256((rawLhs0 % qInt + qInt) % qInt);
-            uint256 rhs0 = (params.commitment[0] + c * proofPublicKey0) % LATTICE_Q;
-            if (lhs0 != rhs0) return false;
-        }
-
-        // 4. Verify component 1
-        {
-            int256 rawLhs1 = (int256(A10) * params.response[0] + int256(A11) * params.response[1] + int256(A12) * params.response[2] + int256(A13) * params.response[3]) % qInt;
-            uint256 lhs1 = uint256((rawLhs1 % qInt + qInt) % qInt);
-            uint256 rhs1 = (params.commitment[1] + c * proofPublicKey1) % LATTICE_Q;
-            if (lhs1 != rhs1) return false;
-        }
-
-        return true;
+        // 3. Verify z * G == W + c * T using ecrecover trick (~3000 gas instead of ~80000 gas)
+        // W = z*G - c*T
+        // Q = r^-1 (s*W - h*G)
+        // To recover Q = T, we need s = -r/c (mod q) and h = z*s (mod q)
+        uint256 r = params.commitmentX % CURVE_ORDER;
+        require(r != 0, "Invalid r");
+        
+        uint256 invC = EllipticCurve.invMod(c, CURVE_ORDER);
+        
+        // s = -r * invC (mod CURVE_ORDER)
+        uint256 minusR = CURVE_ORDER - r;
+        uint256 s = mulmod(minusR, invC, CURVE_ORDER);
+        
+        // h = z * s (mod CURVE_ORDER)
+        uint256 h = mulmod(params.response, s, CURVE_ORDER);
+        
+        // v = 27 + (Wy % 2)
+        uint8 v = uint8(27 + (params.commitmentY % 2));
+        
+        address recovered = ecrecover(bytes32(h), v, bytes32(r), bytes32(s));
+        address expectedAddress = address(uint160(uint256(keccak256(abi.encodePacked(proofPublicKeyX, proofPublicKeyY)))));
+        
+        return (recovered != address(0) && recovered == expectedAddress);
     }
 
-    function verifyLatticeZKP(ReEncryptInputs memory params) public view returns (bool) {
+    function verifySchnorrZKP(ReEncryptInputs memory params) public view returns (bool) {
         (uint pub0, uint pub1, bool isSet) = countingContract.getProofPublicKey(msg.sender);
         if (!isSet) return false;
-        return verifyLatticeZKP(params, pub0, pub1);
+        return verifySchnorrZKP(params, pub0, pub1);
     }
 
     function verifyZKProof(ReEncryptInputs memory params) public view returns (bool) {
-        return verifyLatticeZKP(params);
+        return verifySchnorrZKP(params);
     }
 
     function reEncrypt(ReEncryptInputs memory params)
@@ -228,7 +215,7 @@ contract PRE
         require(isSet, "Proof public key not set");
 
         require(
-            verifyLatticeZKP(params, pub0, pub1),
+            verifySchnorrZKP(params, pub0, pub1),
             "Proof verification failed"
         );
 

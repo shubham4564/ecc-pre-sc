@@ -271,25 +271,18 @@ def ensure_sp_proof_material(wallet_address):
     if _SP_PROOF_FILE.exists():
         with open(_SP_PROOF_FILE, "r") as f:
             payload = json.load(f)
-        if payload.get("wallet_address", "").lower() == wallet_address.lower() and "public_key_0" in payload:
+        if payload.get("wallet_address", "").lower() == wallet_address.lower() and "secret_scalar" in payload:
             return payload
 
-    Q = 8380417
-    A = [
-        [175421, 894125, 645123, 912401],
-        [451204, 781203, 314159, 271828]
-    ]
-    secret_vector = [secrets.randbelow(41) - 20 for _ in range(4)]
-    t0 = sum(A[0][j] * secret_vector[j] for j in range(4)) % Q
-    t1 = sum(A[1][j] * secret_vector[j] for j in range(4)) % Q
+    curve = SECP256k1
+    secret_scalar = secrets.randbelow(curve.order - 1) + 1
+    public_key_point = secret_scalar * curve.generator
 
     payload = {
         "wallet_address": wallet_address,
-        "secret_vector": secret_vector,
-        "public_key_0": t0,
-        "public_key_1": t1,
-        "public_key_x": str(t0),
-        "public_key_y": str(t1),
+        "secret_scalar": secret_scalar,
+        "public_key_x": str(public_key_point.x()),
+        "public_key_y": str(public_key_point.y()),
     }
     with open(_SP_PROOF_FILE, "w") as f:
         json.dump(payload, f, indent=4)

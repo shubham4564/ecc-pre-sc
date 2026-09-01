@@ -216,7 +216,8 @@ class SP:
 
         if isinstance(proof_or_commitmentX, dict):
             proof = proof_or_commitmentX
-            commitment = proof['commitment']
+            commitmentX = proof['commitmentX']
+            commitmentY = proof['commitmentY']
             response = proof['response']
             nonce = proof.get('nonce', 0)
             expiry = proof.get('expiry', 0)
@@ -225,8 +226,9 @@ class SP:
             'rk1': int(rk1),
             'rk2': int(rk2),
             'rk3': int(rk3),
-            'commitment': [int(c) for c in commitment],
-            'response': [int(r) for r in response],
+            'commitmentX': int(commitmentX),
+            'commitmentY': int(commitmentY),
+            'response': int(response),
             'nonce': int(nonce if nonce is not None else 0),
             'expiry': int(expiry if expiry is not None else 0),
             'userPublicKey': Web3.to_checksum_address(proof['userPublicKey']),
@@ -349,7 +351,7 @@ class SP:
         return int.from_bytes(digest, byteorder='big') % self.q
 
     def generate_reencryption_proof(self, contract_address, sender_address, rk1, rk2, rk3):
-        return generate_lattice_zkp_inputs(
+        return generate_schnorr_zkp_inputs(
             rk1=rk1,
             rk2=rk2,
             rk3=rk3,
@@ -593,29 +595,29 @@ def create_user_access_token_and_signature(user_private_key=None, contract_addre
         'user_token': token_bytes
     }
 
-def generate_lattice_zkp_inputs(
-    secret_vector=None, pub_0=None, pub_1=None, rk1=0, rk2=0, rk3=0,
+def generate_schnorr_zkp_inputs(
+    secret_scalar=None, pub_x=None, pub_y=None, rk1=0, rk2=0, rk3=0,
     contract_address=None, sender_address=None, nonce=None, expiry=0,
     user_private_key=None, user_public_key=None, user_nonce=None, user_expiry=0, user_signature=None
 ):
-    """Generate Lattice ZKP inputs bound to user access request token matching verifyLatticeZKP in Solidity."""
-    Q = 8380417
-    Q_C = 256
-    A = [
-        [175421, 894125, 645123, 912401],
-        [451204, 781203, 314159, 271828]
-    ]
+    """Generate Schnorr ZKP inputs bound to user access request token matching verifySchnorrZKP in Solidity."""
+    curve = SECP256k1
+    Q = int(curve.order)
 
     load_dotenv()
     wallet_address = sender_address or os.getenv('WALLET_ADDRESS')
     if not wallet_address:
         raise ValueError("Missing WALLET_ADDRESS in .env or sender_address argument")
 
-    if secret_vector is None or pub_0 is None or pub_1 is None:
+    if secret_scalar is None or pub_x is None or pub_y is None:
         material = load_sp_proof_material(wallet_address)
-        secret_vector = secret_vector or material.get('secret_vector', [12, -7, 45, -3])
-        pub_0 = pub_0 if pub_0 is not None else int(material.get('public_key_0', material.get('public_key_x', 0)))
-        pub_1 = pub_1 if pub_1 is not None else int(material.get('public_key_1', material.get('public_key_y', 0)))
+        secret_scalar = int(material.get('secret_scalar', 1))
+        pub_x = int(material.get('public_key_x', 0))
+        pub_y = int(material.get('public_key_y', 0))
+    else:
+        secret_scalar = int(secret_scalar)
+        pub_x = int(pub_x)
+        pub_y = int(pub_y)
 
     contract_address = contract_address or get_contract_info()
     rk1 = int(rk1)
@@ -645,11 +647,11 @@ def generate_lattice_zkp_inputs(
         user_nonce = int(user_nonce or secrets.randbits(64))
         user_expiry = int(user_expiry)
 
-    # Mask vector y
-    y = [secrets.randbelow(500000) - 250000 for _ in range(4)]
-    w0 = sum(A[0][j] * y[j] for j in range(4)) % Q
-    w1 = sum(A[1][j] * y[j] for j in range(4)) % Q
-    commitment = [w0, w1]
+    # Schnorr commitment W = k * G
+    k = secrets.randbelow(Q - 1) + 1
+    W = k * curve.generator
+    Wx = int(W.x())
+    Wy = int(W.y())
 
     user_token = Web3.solidity_keccak(
         ['address', 'address', 'uint256', 'uint256'],
@@ -657,38 +659,35 @@ def generate_lattice_zkp_inputs(
     )
     h1 = Web3.solidity_keccak(
         ['address', 'address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256'],
-        [Web3.to_checksum_address(contract_address), Web3.to_checksum_address(wallet_address), rk1, rk2, rk3, commitment[0], commitment[1]]
+        [Web3.to_checksum_address(contract_address), Web3.to_checksum_address(wallet_address), rk1, rk2, rk3, Wx, Wy]
     )
     h2 = Web3.solidity_keccak(
         ['uint256', 'uint256', 'address', 'bytes32', 'bytes', 'uint256', 'uint256'],
-        [int(pub_0), int(pub_1), Web3.to_checksum_address(user_public_key), user_token, user_signature, nonce, expiry]
+        [pub_x, pub_y, Web3.to_checksum_address(user_public_key), user_token, user_signature, nonce, expiry]
     )
     c_bytes = Web3.solidity_keccak(['bytes32', 'bytes32'], [h1, h2])
-    c = int.from_bytes(c_bytes, 'big') % Q_C
+    c = int.from_bytes(c_bytes, 'big') % Q
 
-    response = [y[j] + c * secret_vector[j] for j in range(4)]
+    z = (k + c * secret_scalar) % Q
 
     return {
-        'commitment': commitment,
-        'response': response,
+        'commitmentX': Wx,
+        'commitmentY': Wy,
+        'response': z,
         'nonce': nonce,
         'expiry': expiry,
         'userPublicKey': Web3.to_checksum_address(user_public_key),
         'userNonce': user_nonce,
         'userExpiry': user_expiry,
         'userSignature': user_signature,
-        'commitmentX': commitment[0],
-        'commitmentY': commitment[1],
-        'proofCommitmentX': commitment[0],
-        'proofCommitmentY': commitment[1],
     }
 
-def generate_schnorr_zkp_inputs(secret_scalar, pub_x, pub_y, rk1, rk2, rk3, contract_address, sender_address, nonce=None, expiry=0):
-    return generate_lattice_zkp_inputs(rk1=rk1, rk2=rk2, rk3=rk3, contract_address=contract_address, sender_address=sender_address, nonce=nonce, expiry=expiry)
-
 def generate_arithmetic_zkp_inputs(secret_scalar=None, pub_x=None, pub_y=None, rk1=0, rk2=0, rk3=0, contract_address=None, sender_address=None, nonce=None, expiry=0):
-    """Generate Lattice ZKP inputs for reEncrypt function."""
-    return generate_lattice_zkp_inputs(
+    """Generate ZKP inputs for reEncrypt function."""
+    return generate_schnorr_zkp_inputs(
+        secret_scalar=secret_scalar,
+        pub_x=pub_x,
+        pub_y=pub_y,
         rk1=rk1,
         rk2=rk2,
         rk3=rk3,
@@ -723,10 +722,10 @@ def main():
     sp_proof_material = load_sp_proof_material(wallet_address)
     contract_address = get_contract_info()
 
-    proof = generate_lattice_zkp_inputs(
-        secret_vector=sp_proof_material.get('secret_vector'),
-        pub_0=sp_proof_material.get('public_key_0', sp_proof_material.get('public_key_x')),
-        pub_1=sp_proof_material.get('public_key_1', sp_proof_material.get('public_key_y')),
+    proof = generate_schnorr_zkp_inputs(
+        secret_scalar=sp_proof_material.get('secret_scalar'),
+        pub_x=sp_proof_material.get('public_key_x'),
+        pub_y=sp_proof_material.get('public_key_y'),
         rk1=rk11,
         rk2=rk22,
         rk3=rk33,
