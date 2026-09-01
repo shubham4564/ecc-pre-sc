@@ -106,3 +106,5 @@ paper-*/d.txt
 *.temp
 *.bak
 *.orig
+*.svg
+*.pdf
